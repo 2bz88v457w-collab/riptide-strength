@@ -347,7 +347,6 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
 // ─── SESSION DETAIL MODAL (coach view of a logged session) ────────────────────
 function SessionDetailModal({ log, workout, athlete, onClose }) {
   if (!log || !workout) return null;
-  const allExercises = workout.blocks?.flatMap((b) => b.exercises) || [];
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.82)", zIndex: 200, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
       <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 640, padding: 26 }}>
