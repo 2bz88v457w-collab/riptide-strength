@@ -716,6 +716,7 @@ function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, on
                     </div>
                     <div style={{ display: "flex", gap: 8, marginLeft: 12 }}>
                       <Btn variant="ghost" small onClick={() => { setEditWkt(wkt); setShowBuilder(true); }}>Edit</Btn>
+                      <Btn variant="ghost" small onClick={() => { const copy = { ...JSON.parse(JSON.stringify(wkt)), id: uid(), title: wkt.title + " — Copy", date: today(), assignees: [] }; setEditWkt(copy); setShowBuilder(true); }}>Duplicate</Btn>
                       <button onClick={() => onDeleteWorkout(wkt.id)} style={{ background: "none", border: "none", color: C.red, fontSize: 20, cursor: "pointer", padding: "0 4px" }}>×</button>
                     </div>
                   </div>
