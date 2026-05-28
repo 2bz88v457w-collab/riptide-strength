@@ -405,6 +405,7 @@ function SessionDetailModal({ log, workout, athlete, onClose }) {
             <div key={block.id} style={{ marginBottom: 18 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}><div style={{ width: 3, height: 14, borderRadius: 2, background: BLOCK_COLORS[bi] || C.muted }} /><span style={{ fontSize: 11, fontWeight: 800, color: BLOCK_COLORS[bi] || C.muted, textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span></div>
               {rendered}
+              {log.blockNotes?.[block.id] && <p style={{ margin: "6px 0 0", fontSize: 12, color: C.mutedUp, fontStyle: "italic", background: C.bg, borderRadius: 7, padding: "6px 10px" }}>"{log.blockNotes[block.id]}"</p>}
             </div>
           );
         })}
@@ -426,19 +427,33 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
     return init;
   });
   const [note, setNote] = useState(existingLog?.note || "");
+  const [blockNotes, setBlockNotes] = useState(() => {
+    const init = {};
+    workout.blocks.forEach((b) => { init[b.id] = existingLog?.blockNotes?.[b.id] || ""; });
+    return init;
+  });
   const [rpe, setRpe] = useState(existingLog?.rpe || "");
   const [saving, setSaving] = useState(false);
 
   const updSet = (exId, idx, k, v) => setSets((s) => ({ ...s, [exId]: s[exId].map((r, i) => i === idx ? { ...r, [k]: v } : r) }));
-  const toggleDone = (exId, idx) => updSet(exId, idx, "done", !sets[exId][idx].done);
+
+  // Auto-fill prescribed reps on checkmark if reps field is empty
+  const toggleDone = (exId, idx, prescribedReps) => {
+    setSets((s) => {
+      const current = s[exId][idx];
+      const nowDone = !current.done;
+      const reps = current.reps || (nowDone ? prescribedReps : "");
+      return { ...s, [exId]: s[exId].map((r, i) => i === idx ? { ...r, done: nowDone, reps } : r) };
+    });
+  };
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave({ athleteId, workoutId: workout.id, date: workout.date, sets, note, rpe });
+    await onSave({ athleteId, workoutId: workout.id, date: workout.date, sets, note, blockNotes, rpe });
     setSaving(false);
   };
 
-  const inpSm = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.white, padding: "4px 6px", fontSize: 13, textAlign: "center", fontFamily: "inherit", boxSizing: "border-box" };
+  const inpSm = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.white, padding: "4px 6px", fontSize: 13, textAlign: "center", fontFamily: "inherit", boxSizing: "border-box", inputMode: "numeric" };
 
   const renderExLog = (ex, bi, isSupersetMember = false) => {
     const history = getLastSets(ex.name, athleteId, allLogs, allWorkouts, workout.id);
@@ -462,10 +477,10 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
           {(sets[ex.id] || []).map((row, idx) => (
             <div key={idx} style={{ display: "flex", alignItems: "center", gap: 4, background: row.done ? C.tealGlow : "rgba(255,255,255,.03)", border: `1px solid ${row.done ? C.teal : C.border}`, borderRadius: 7, padding: "4px 7px" }}>
               <span style={{ fontSize: 10, color: C.muted, width: 14 }}>S{idx + 1}</span>
-              <input value={row.reps} onChange={(e) => updSet(ex.id, idx, "reps", e.target.value)} placeholder={ex.reps} style={{ ...inpSm, width: 40 }} />
+              <input value={row.reps} inputMode="numeric" onChange={(e) => updSet(ex.id, idx, "reps", e.target.value)} placeholder={ex.reps} style={{ ...inpSm, width: 40 }} />
               <span style={{ color: C.muted, fontSize: 10 }}>@</span>
-              <input value={row.load} onChange={(e) => updSet(ex.id, idx, "load", e.target.value)} placeholder={ex.load || "—"} style={{ ...inpSm, width: 50 }} />
-              <button onClick={() => toggleDone(ex.id, idx)} style={{ background: "none", border: "none", cursor: "pointer", color: row.done ? C.teal : C.muted, fontSize: 17, padding: 0, lineHeight: 1 }}>{row.done ? "✓" : "○"}</button>
+              <input value={row.load} inputMode="numeric" onChange={(e) => updSet(ex.id, idx, "load", e.target.value)} placeholder={ex.load || "—"} style={{ ...inpSm, width: 50 }} />
+              <button onClick={() => toggleDone(ex.id, idx, ex.reps)} style={{ background: "none", border: "none", cursor: "pointer", color: row.done ? C.teal : C.muted, fontSize: 17, padding: 0, lineHeight: 1 }}>{row.done ? "✓" : "○"}</button>
             </div>
           ))}
         </div>
@@ -506,6 +521,13 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
             <div key={block.id} style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}><div style={{ width: 3, height: 14, borderRadius: 2, background: BLOCK_COLORS[bi] || C.muted }} /><span style={{ fontSize: 11, fontWeight: 800, color: BLOCK_COLORS[bi] || C.muted, textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span></div>
               {rendered}
+              <textarea
+                value={blockNotes[block.id] || ""}
+                onChange={(e) => setBlockNotes((n) => ({ ...n, [block.id]: e.target.value }))}
+                placeholder={`Notes for ${block.name}…`}
+                rows={2}
+                style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, padding: "7px 10px", fontSize: 12, width: "100%", boxSizing: "border-box", resize: "none", fontFamily: "inherit", marginTop: 6, fontStyle: "italic" }}
+              />
             </div>
           );
         })}
