@@ -597,7 +597,7 @@ function LoginScreen({ athletes, onLogin, onCoachLogin }) {
   return (
     <div style={{ minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ marginBottom: 32, textAlign: "center" }}>
-        <img src="/logo.png" alt="The Cage – Riptide Swimming" style={{ width: 260, maxWidth: "90%", marginBottom: 8, filter: "drop-shadow(0 4px 24px rgba(0,212,184,0.18))" }} />
+        <img src="/logo.png" alt="The Cage – Riptide Swimming" style={{ width: 360, maxWidth: "92%", marginBottom: 8, filter: "drop-shadow(0 4px 24px rgba(0,212,184,0.18))" }} />
         <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13, letterSpacing: ".04em" }}>STRENGTH · SPEED · POWER</p>
       </div>
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, width: "100%", maxWidth: 380, padding: 28, boxShadow: `0 0 80px ${C.tealGlow}` }}>
