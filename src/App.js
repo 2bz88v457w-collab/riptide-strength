@@ -15,17 +15,15 @@ const C = {
 
 const BLOCK_COLORS = [C.teal, C.gold, "#A78BFA", C.red, C.mutedUp];
 const BLOCKS = ["Warm-up", "Block 1", "Block 2", "Block 3", "Cool Down"];
-const EXERCISE_BANK = [
-  "Single Arm KB Front Squat",	"TRX Rows",	"Dual KB Front Squat",	"Dead Bug (Banded)",	"KB Clean",	"Box Jump",	"Single-Leg RDL",	"Step-up",
-"Seated Shoulder Press",	"Banded Chest Press OH Extension",	"Squat Jump",	"Slam Ball",	"DB Thrusters",	"Romanian Deadlift",	"Trap Bar Deadlift",	"Face Pull",
-"Pull Ups",	"Farmer Carry",	"Alt V Ups",	"TRX Plank Pike",	"TRX Row",	"Back Squat",	"Seated Row",	"Half-Kneeling Press",
-"Hollow Hold",	"DB Box Step Up",	"Power Push Ups",	"Lunge",	"Bulgarian Split Squat",	"Lat Pulldown",	"Overhead Press",	"Copenhagen Plank",
-"Seated Rows",	"Floor Chest Press",	"TRX Chest Press",	"Sled Push",	"Goblet Squat",	"DB Bench Press",	"Bird Dog",	"Hollow Body Hold",
-"Single Leg Layouts",	"Reverse Fly",	"Copenhagen Plank (Variation)",	"Bicycles",	"DB Front Squat",	"Dead Bug",	"Banded Hip Extension",	"Med Ball Rotational Throw",
-"Lat Pull Down",	"TRX YTWs",	"Box Jumps",	"Renegade Row",	"Pull-up / Band-Assisted",	"Nordic Curl",	"Med Ball Slam",	"Battle Rope Wave",
-"Push ups",	"Banded Hamstring Curls",	"PVC OH Squat",	"Start Slam Ball Throw",	"Push-up Variation",	"Broad Jump",	"Suitcase Carry",	"Arnold Press",
-"RDL",	"DB Snatch",	"Centipede",	"Toes to Bar",	"Pallof Press",	"Farmers Carry",	"Cable Pull-Through",
-"Glute Bridge OH Extension",	"Quadruped Med Ball Twist",	"KB Swing",	"Half Kneeling Slam Ball Throw",	"Glute Bridge",	"Landmine Press",	"Hip Hinge"
+const EXERCISE_BANK = ["Single Arm KB Front Squat",	"Glute Bridge OH Extension",	"DB Snatch",	"PVC OH Squat",	"Renegade Row",	"DB Front Squat",	"DB Bench Press",	"Overhead Press",	"Half-Kneeling Press",
+"Seated Shoulder Press",	"TRX Rows",	"Quadruped Med Ball Twist",	"Centipede",	"Start Slam Ball Throw",	"Pull-up / Band-Assisted",	"Dead Bug",	"Bird Dog",	"Copenhagen Plank",
+"Pull Ups",	"Banded Chest Press OH Extension",	"Dual KB Front Squat",	"KB Swing",	"Toes to Bar",	"Push-up Variation",	"Nordic Curl",	"Banded Hip Extension",	"Hollow Body Hold",
+"Hollow Hold",	"Farmer Carry",	"Squat Jump",	"Dead Bug (Banded)",	"Half Kneeling Slam Ball Throw",	"Pallof Press",	"Broad Jump",	"Med Ball Slam",	"Med Ball Rotational Throw",
+"Seated Rows",	"DB Box Step Up",	"Alt V Ups",	"Slam Ball",	"KB Clean",	"Glute Bridge",	"Farmers Carry",	"Suitcase Carry",	"Battle Rope Wave",
+"Single Leg Layouts",	"Floor Chest Press",	"Power Push Ups",	"TRX Plank Pike",	"DB Thrusters",	"Box Jump",	"Landmine Press",	"Cable Pull-Through",	"Arnold Press",
+"Lat Pull Down",	"Reverse Fly",	"TRX Chest Press",	"Lunge",	"TRX Row",	"Romanian Deadlift",	"Single-Leg RDL",	"Hip Hinge",	"Single Arm TRX Row",
+"Push ups",	"TRX YTWs",	"Copenhagen Plank (Variation)",	"Sled Push",	"Bulgarian Split Squat",	"Back Squat",	"Trap Bar Deadlift",	"Step-up",	"Battle Rope Slam",
+"RDL",	"Banded Hamstring Curls",	"Box Jumps",	"Bicycles",	"Goblet Squat",	"Lat Pulldown",	"Seated Row",	"Face Pull",	"Rear Foot Elevated Split Squat"
 ];
 
 const uid = () => Math.random().toString(36).slice(2, 9);
