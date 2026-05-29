@@ -597,11 +597,8 @@ function LoginScreen({ athletes, onLogin, onCoachLogin }) {
   return (
     <div style={{ minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ marginBottom: 32, textAlign: "center" }}>
-        <div style={{ width: 56, height: 56, borderRadius: 14, background: C.teal, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={C.bg} strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
-        </div>
-        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: C.white }}>Riptide <span style={{ color: C.teal }}>Strength</span></h1>
-        <p style={{ margin: "6px 0 0", color: C.muted, fontSize: 14 }}>South Metro Swim Performance</p>
+        <img src="/logo.png" alt="The Cage – Riptide Swimming" style={{ width: 260, maxWidth: "90%", marginBottom: 8, filter: "drop-shadow(0 4px 24px rgba(0,212,184,0.18))" }} />
+        <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13, letterSpacing: ".04em" }}>STRENGTH · SPEED · POWER</p>
       </div>
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, width: "100%", maxWidth: 380, padding: 28, boxShadow: `0 0 80px ${C.tealGlow}` }}>
         <div style={{ display: "flex", background: C.bg, borderRadius: 30, padding: 4, marginBottom: 22 }}>
