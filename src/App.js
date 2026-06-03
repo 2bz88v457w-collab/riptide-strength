@@ -620,7 +620,7 @@ function LoginScreen({ athletes, onLogin, onCoachLogin }) {
 }
 
 // ─── ATHLETE APP ──────────────────────────────────────────────────────────────
-function AthleteApp({ athlete, workouts, logs, onLog, onLogout }) {
+function AthleteApp({ athlete, workouts, logs, testScores, onLog, onLogout }) {
   const myWorkouts = workouts.filter((w) => w.assignees?.includes(athlete.id)).sort((a, b) => b.date.localeCompare(a.date));
   const myLogs = logs.filter((l) => l.athleteId === athlete.id);
   const [logTarget, setLogTarget] = useState(null);
@@ -639,6 +639,7 @@ function AthleteApp({ athlete, workouts, logs, onLog, onLogout }) {
           <StatCard label="Logged" value={myLogs.length} accent={myLogs.length > 0 ? C.teal : undefined} />
           <StatCard label="Avg RPE" value={myLogs.filter((l) => l.rpe).length ? (myLogs.reduce((s, l) => s + (parseFloat(l.rpe) || 0), 0) / myLogs.filter((l) => l.rpe).length).toFixed(1) : "—"} accent={C.gold} />
         </div>
+        <AthleteProgressCard athlete={athlete} testScores={testScores} />
         <h3 style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", letterSpacing: ".06em", textTransform: "uppercase" }}>Your workouts</h3>
         {myWorkouts.length === 0 && <p style={{ color: C.muted, textAlign: "center", padding: "40px 0" }}>No workouts assigned yet — check back soon.</p>}
         {myWorkouts.map((wkt) => {
@@ -665,7 +666,7 @@ function AthleteApp({ athlete, workouts, logs, onLog, onLogout }) {
 }
 
 // ─── COACH APP ────────────────────────────────────────────────────────────────
-function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onLogout }) {
+function CoachApp({ athletes, workouts, logs, testScores, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onSaveTestScore, onLogout }) {
   const [tab, setTab] = useState("workouts");
   const [showBuilder, setShowBuilder] = useState(false);
   const [editWkt, setEditWkt] = useState(null);
@@ -675,7 +676,7 @@ function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, on
   const [sessionDetail, setSessionDetail] = useState(null); // {log, workout, athlete}
   const [newAthlete, setNewAthlete] = useState({ name: "", event: "", pin: "" });
   const [adding, setAdding] = useState(false);
-  const [rosterFilter, setRosterFilter] = useState("All");
+  const [showTestEntry, setShowTestEntry] = useState(false);
 
   const poolGroups = [...new Set(athletes.map((a) => a.event).filter(Boolean))];
   const filteredAthletes = rosterFilter === "All" ? athletes : athletes.filter((a) => a.event === rosterFilter);
@@ -694,7 +695,7 @@ function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, on
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ display: "flex", background: C.bg, borderRadius: 30, padding: 3 }}>
-              {["workouts","roster","logs"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize" }}>{t}</button>)}
+              {["workouts","roster","logs","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize" }}>{t}</button>)}
             </div>
             <button onClick={onLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit" }}>Log out</button>
           </div>
@@ -854,11 +855,243 @@ function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, on
             })}
           </div>
         )}
+
+        {tab === "progress" && (
+          <ProgressDashboard athletes={athletes} testScores={testScores} onEnterScores={() => setShowTestEntry(true)} />
+        )}
+
       </div>
 
       {showBuilder && <BuilderModal athletes={athletes} onSave={async (wkt) => { await onSaveWorkout(wkt); setShowBuilder(false); setEditWkt(null); }} onClose={() => { setShowBuilder(false); setEditWkt(null); }} editWkt={editWkt} />}
       {editAthlete && <EditAthleteModal athlete={editAthlete} onSave={async (updated) => { await onUpdateAthlete(updated); setEditAthlete(null); if (selectedAthlete?.id === updated.id) setSelectedAthlete(updated); }} onDelete={async () => { await onDeleteAthlete(editAthlete.id); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onClose={() => setEditAthlete(null)} />}
       {sessionDetail && <SessionDetailModal log={sessionDetail.log} workout={sessionDetail.workout} athlete={sessionDetail.athlete} onClose={() => setSessionDetail(null)} />}
+      {showTestEntry && <TestScoreModal athletes={athletes} onSave={async (score) => { await onSaveTestScore(score); }} onClose={() => setShowTestEntry(false)} />}
+    </div>
+  );
+}
+
+// ─── TEST SCORE CONSTANTS ─────────────────────────────────────────────────────
+const TEST_METRICS = [
+  { key: "pushups", label: "Push-ups", unit: "reps in 30s", color: C.teal },
+  { key: "pullups", label: "Pull-ups", unit: "unbroken reps", color: C.gold },
+  { key: "rdl", label: "RDL", unit: "lbs", color: "#A78BFA" },
+];
+
+const MOVEMENT_CATEGORIES = {
+  Hinge: ["Romanian Deadlift","Single-Leg RDL","Hip Hinge","Trap Bar Deadlift","Cable Pull-Through","Nordic Curl","Glute Bridge","Banded Hip Extension"],
+  Squat: ["Goblet Squat","DB Front Squat","Back Squat","Step-up","Box Jump","Broad Jump"],
+  Pull: ["Pull-up / Band-Assisted","Lat Pulldown","Seated Row","TRX Row","Face Pull"],
+  Press: ["Push-up Variation","DB Bench Press","Overhead Press","Half-Kneeling Press","Landmine Press","Arnold Press"],
+  Brace: ["Pallof Press","Dead Bug","Bird Dog","Copenhagen Plank","Hollow Body Hold","Farmers Carry","Suitcase Carry"],
+};
+
+// ─── TEST SCORE ENTRY MODAL ───────────────────────────────────────────────────
+function TestScoreModal({ athletes, onSave, onClose }) {
+  const [selectedId, setSelectedId] = useState(athletes[0]?.id || "");
+  const [date, setDate] = useState(today());
+  const [scores, setScores] = useState({ pushups: "", pullups: "", rdl: "" });
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = athletes.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
+  const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
+
+  const handleSave = async () => {
+    if (!selectedId) return;
+    setSaving(true);
+    await onSave({ id: uid(), athleteId: selectedId, date, pushups: scores.pushups ? parseInt(scores.pushups) : null, pullups: scores.pullups ? parseInt(scores.pullups) : null, rdl: scores.rdl ? parseFloat(scores.rdl) : null, notes, createdAt: Date.now() });
+    setScores({ pushups: "", pullups: "", rdl: "" });
+    setNotes("");
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 560, padding: 28, boxShadow: `0 0 60px ${C.tealGlow}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
+          <h2 style={{ margin: 0, color: C.white, fontSize: 20, fontWeight: 800 }}>Enter test scores</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 12, marginBottom: 18 }}>
+          <div>
+            <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>ATHLETE</label>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search athlete…" style={inp} />
+            {search && (
+              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, marginTop: 4, maxHeight: 160, overflowY: "auto" }}>
+                {filtered.map((a) => (
+                  <button key={a.id} onClick={() => { setSelectedId(a.id); setSearch(a.name); }} style={{ display: "block", width: "100%", background: selectedId === a.id ? C.tealGlow : "transparent", border: "none", borderBottom: `1px solid ${C.border}`, color: selectedId === a.id ? C.teal : C.white, padding: "8px 12px", textAlign: "left", cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>{a.name} <span style={{ color: C.muted, fontSize: 11 }}>{a.event}</span></button>
+                ))}
+              </div>
+            )}
+            {!search && selectedId && <p style={{ margin: "6px 0 0", fontSize: 13, color: C.teal }}>{athletes.find((a) => a.id === selectedId)?.name}</p>}
+          </div>
+          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>DATE</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp} /></div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 18 }}>
+          {TEST_METRICS.map((m) => (
+            <div key={m.key} style={{ background: C.bg, borderRadius: 12, padding: 14, border: `1px solid ${C.border}`, textAlign: "center" }}>
+              <p style={{ margin: "0 0 4px", fontSize: 11, color: m.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>{m.label}</p>
+              <input value={scores[m.key]} onChange={(e) => setScores((s) => ({ ...s, [m.key]: e.target.value }))} inputMode="numeric" placeholder="—" style={{ background: "transparent", border: "none", borderBottom: `2px solid ${m.color}`, color: C.white, fontSize: 28, fontWeight: 800, width: "100%", textAlign: "center", fontFamily: "inherit", outline: "none", padding: "4px 0" }} />
+              <p style={{ margin: "6px 0 0", fontSize: 10, color: C.muted }}>{m.unit}</p>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>NOTES (optional)</label>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any context — injury, conditions, etc." rows={2} style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 13, width: "100%", boxSizing: "border-box", resize: "none", fontFamily: "inherit" }} />
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+          <Btn onClick={handleSave} disabled={!selectedId || saving || (!scores.pushups && !scores.pullups && !scores.rdl)}>{saving ? "Saving…" : "Save scores"}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ATHLETE PROGRESS CARD ────────────────────────────────────────────────────
+function AthleteProgressCard({ athlete, testScores }) {
+  const myScores = testScores.filter((s) => s.athleteId === athlete.id).sort((a, b) => a.date.localeCompare(b.date));
+  if (myScores.length === 0) return null;
+
+  const latest = myScores[myScores.length - 1];
+  const first = myScores[0];
+  const hasDelta = myScores.length >= 2;
+
+  const delta = (key) => {
+    if (!hasDelta || !latest[key] || !first[key]) return null;
+    const diff = latest[key] - first[key];
+    const pct = ((diff / first[key]) * 100).toFixed(0);
+    return { diff, pct };
+  };
+
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: `0 0 30px ${C.tealGlow}` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.teal, textTransform: "uppercase", letterSpacing: ".06em" }}>Your progress</p>
+          {hasDelta && <p style={{ margin: "2px 0 0", fontSize: 11, color: C.muted }}>{fmtDate(first.date)} → {fmtDate(latest.date)}</p>}
+          {!hasDelta && <p style={{ margin: "2px 0 0", fontSize: 11, color: C.muted }}>Baseline — {fmtDate(latest.date)}</p>}
+        </div>
+        <span style={{ fontSize: 11, color: C.muted }}>{myScores.length} test{myScores.length !== 1 ? "s" : ""}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+        {TEST_METRICS.map((m) => {
+          const val = latest[m.key];
+          const d = delta(m.key);
+          if (!val) return <div key={m.key} style={{ background: C.bg, borderRadius: 10, padding: "12px 10px", textAlign: "center", border: `1px solid ${C.border}` }}><p style={{ margin: 0, fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: ".05em" }}>{m.label}</p><p style={{ margin: "6px 0 0", fontSize: 18, color: C.muted }}>—</p></div>;
+          return (
+            <div key={m.key} style={{ background: C.bg, borderRadius: 10, padding: "12px 10px", textAlign: "center", border: `1px solid ${m.color}33` }}>
+              <p style={{ margin: 0, fontSize: 10, color: m.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>{m.label}</p>
+              <p style={{ margin: "6px 0 2px", fontSize: 24, fontWeight: 900, color: C.white }}>{val}<span style={{ fontSize: 11, color: C.muted, fontWeight: 400, marginLeft: 3 }}>{m.key === "rdl" ? "lbs" : ""}</span></p>
+              {d && <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: d.diff >= 0 ? C.teal : C.red }}>{d.diff >= 0 ? "+" : ""}{d.diff} <span style={{ opacity: .7 }}>({d.diff >= 0 ? "+" : ""}{d.pct}%)</span></p>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── COACH PROGRESS DASHBOARD ─────────────────────────────────────────────────
+function ProgressDashboard({ athletes, testScores, onEnterScores }) {
+  const [groupFilter, setGroupFilter] = useState("All");
+  const [metricFilter, setMetricFilter] = useState("pushups");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [search, setSearch] = useState("");
+
+  const poolGroups = [...new Set(athletes.map((a) => a.event).filter(Boolean))];
+
+  const filteredAthletes = athletes.filter((a) => {
+    if (groupFilter !== "All" && a.event !== groupFilter) return false;
+    if (search && !a.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  // For each athlete, get first and latest score for the selected metric
+  const athleteData = filteredAthletes.map((a) => {
+    const scores = testScores.filter((s) => s.athleteId === a.id && s[metricFilter] != null).sort((x, y) => x.date.localeCompare(y.date));
+    const first = scores[0];
+    const latest = scores[scores.length - 1];
+    const delta = first && latest && scores.length >= 2 ? latest[metricFilter] - first[metricFilter] : null;
+    const pct = delta !== null && first[metricFilter] ? ((delta / first[metricFilter]) * 100).toFixed(0) : null;
+    return { athlete: a, first, latest, delta, pct, count: scores.length };
+  }).filter((d) => d.latest);
+
+  // Sort by delta descending
+  const sorted = [...athleteData].sort((a, b) => (b.delta || 0) - (a.delta || 0));
+
+  const metric = TEST_METRICS.find((m) => m.key === metricFilter);
+
+  // Group averages
+  const groupAvg = (group) => {
+    const gAthletes = (group === "All" ? athletes : athletes.filter((a) => a.event === group)).map((a) => a.id);
+    const vals = athleteData.filter((d) => gAthletes.includes(d.athlete.id) && d.delta !== null);
+    if (!vals.length) return null;
+    return (vals.reduce((s, d) => s + d.delta, 0) / vals.length).toFixed(1);
+  };
+
+  const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "7px 12px", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Progress</h1>
+          <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>{testScores.length} test entries · {athletes.filter((a) => testScores.some((s) => s.athleteId === a.id)).length} athletes tested</p>
+        </div>
+        <Btn onClick={onEnterScores}>+ Enter scores</Btn>
+      </div>
+
+      {/* Metric selector */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {TEST_METRICS.map((m) => (
+          <button key={m.key} onClick={() => setMetricFilter(m.key)} style={{ border: `1px solid ${metricFilter === m.key ? m.color : C.border}`, borderRadius: 20, padding: "6px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: metricFilter === m.key ? `${m.color}22` : "transparent", color: metricFilter === m.key ? m.color : C.mutedUp, transition: "all .15s" }}>{m.label}</button>
+        ))}
+      </div>
+
+      {/* Group + search filters */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1 }}>
+          {["All", ...poolGroups].map((g) => {
+            const avg = groupAvg(g);
+            return (
+              <button key={g} onClick={() => setGroupFilter(g)} style={{ border: `1px solid ${groupFilter === g ? C.teal : C.border}`, borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: groupFilter === g ? C.tealGlow : "transparent", color: groupFilter === g ? C.teal : C.mutedUp }}>
+                {g} {avg !== null && <span style={{ opacity: .7 }}>avg +{avg}</span>}
+              </button>
+            );
+          })}
+        </div>
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search athlete…" style={{ ...inp, width: 180 }} />
+      </div>
+
+      {/* Leaderboard */}
+      {sorted.length === 0 && (
+        <div style={{ textAlign: "center", padding: "48px 0", color: C.muted }}>
+          <p style={{ fontSize: 32, margin: "0 0 8px" }}>📊</p>
+          <p style={{ margin: 0 }}>No test scores yet — enter the first ones above.</p>
+        </div>
+      )}
+      {sorted.map((d, i) => (
+        <div key={d.athlete.id} style={{ background: C.surface, border: `1px solid ${d.delta > 0 ? C.border : C.border}`, borderRadius: 12, padding: "14px 18px", marginBottom: 8, display: "flex", alignItems: "center", gap: 14 }}>
+          <span style={{ fontSize: 16, fontWeight: 900, color: i < 3 ? C.gold : C.muted, width: 24, textAlign: "center" }}>{i + 1}</span>
+          <Avatar name={d.athlete.name} size={40} />
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 14 }}>{d.athlete.name}</p>
+            <p style={{ margin: "2px 0 0", fontSize: 11, color: C.muted }}>{d.athlete.event} · {d.count} test{d.count !== 1 ? "s" : ""}</p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>{d.latest[metricFilter]}<span style={{ fontSize: 11, color: C.muted, marginLeft: 3 }}>{metric?.key === "rdl" ? "lbs" : ""}</span></p>
+            {d.delta !== null && <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 700, color: d.delta >= 0 ? C.teal : C.red }}>{d.delta >= 0 ? "+" : ""}{d.delta} {d.pct !== null && <span style={{ opacity: .7 }}>({d.delta >= 0 ? "+" : ""}{d.pct}%)</span>}</p>}
+            {d.delta === null && <p style={{ margin: "2px 0 0", fontSize: 11, color: C.muted }}>baseline only</p>}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -869,18 +1102,21 @@ export default function App() {
   const [athletes, setAthletes] = useState([]);
   const [workouts, setWorkouts] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [testScores, setTestScores] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchAll() {
-      const [{ data: ath }, { data: wkts }, { data: lg }] = await Promise.all([
+      const [{ data: ath }, { data: wkts }, { data: lg }, { data: ts }] = await Promise.all([
         supabase.from("athletes").select("*"),
         supabase.from("workouts").select("*"),
         supabase.from("logs").select("*"),
+        supabase.from("test_scores").select("*"),
       ]);
       setAthletes(ath || []);
       setWorkouts((wkts || []).map((w) => ({ ...w, blocks: typeof w.blocks === "string" ? JSON.parse(w.blocks) : w.blocks, assignees: typeof w.assignees === "string" ? JSON.parse(w.assignees) : w.assignees })));
       setLogs((lg || []).map((l) => ({ ...l, sets: typeof l.sets === "string" ? JSON.parse(l.sets) : l.sets })));
+      setTestScores(ts || []);
       setLoading(false);
     }
     fetchAll();
@@ -907,6 +1143,11 @@ export default function App() {
     setLogs((data || []).map((l) => ({ ...l, sets: typeof l.sets === "string" ? JSON.parse(l.sets) : l.sets })));
   }, [logs]);
 
+  const saveTestScore = useCallback(async (score) => {
+    await supabase.from("test_scores").insert(score);
+    setTestScores((ts) => [...ts, score]);
+  }, []);
+
   const addAthlete = useCallback(async (athlete) => {
     await supabase.from("athletes").insert(athlete);
     setAthletes((as) => [...as, athlete]);
@@ -930,6 +1171,6 @@ export default function App() {
   );
 
   if (!session) return <LoginScreen athletes={athletes} onLogin={(a) => setSession({ role: "athlete", athlete: a })} onCoachLogin={() => setSession({ role: "coach" })} />;
-  if (session.role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={updateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onLogout={() => setSession(null)} />;
-  return <AthleteApp athlete={session.athlete} workouts={workouts} logs={logs} onLog={saveLog} onLogout={() => setSession(null)} />;
+  if (session.role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={updateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onSaveTestScore={saveTestScore} onLogout={() => setSession(null)} />;
+  return <AthleteApp athlete={session.athlete} workouts={workouts} logs={logs} testScores={testScores} onLog={saveLog} onLogout={() => setSession(null)} />;
 }
