@@ -15,17 +15,30 @@ const C = {
 
 const BLOCK_COLORS = [C.teal, C.gold, "#A78BFA", C.red, C.mutedUp];
 const BLOCKS = ["Warm-up", "Block 1", "Block 2", "Block 3", "Cool Down"];
+
 const EXERCISE_BANK = [
-"Alt V Ups",	"Box Jump",	"DB Snatch",	"Goblet Squat",	"Leg Lowers",	"Push-up Variation",	"Seated Shoulder Press",	"Suitcase Carry",
-"Alt Leg Lowers",	"Broad Jump",	"DB Thrusters",	"Half Kneeling Slam Ball Throw",	"Med Ball Rotational Throw",	"PVC OH Squat",	"Single Arm KB Front Squat",	"Toes to Bar",
-"Arnold Press",	"Bulgarian Split Squat",	"Dead Bug",	"Half-Kneeling Shoulder Press",	"Med Ball Slam",	"Quadruped Med Ball Twist",	"Single Leg Layouts",	"Trap Bar Deadlift",
-"Back Squat",	"Cable Pull-Through",	"Dead Bug (Banded)",	"Hip Hinge",	"Nordic Curl",	"RDL",	"Single-Leg RDL",	"TRX Chest Press",
-"Banded Chest Press OH Extension",	"Centipede",	"Dual KB Front Squat",	"Hip Thrust",	"Overhead Press",	"Rear Foot Elevated Split Squat",	"Sinlge Leg Hip Thrust",	"TRX Plank Pike",
-"Banded Hamstring Curls",	"Copenhagen Plank",	"Face Pull",	"Hollow Hold",	"Pallof Press",	"Renegade Row",	"Slam Ball",	"TRX Row",
-"Banded Hip Extension",	"Copenhagen Plank (Variation)",	"Farmers Carry",	"KB Clean",	"Power Push Ups",	"Reverse Fly",	"Sled Push",	"TRX YTWs",
-"Battle Rope Wave",	"DB Bench Press",	"Floor Chest Press",	"KB Swing",	"Pull Ups",	"Reverse Lunge",	"Squat Jump",	
-"Bicycles",	"DB Box Step Up",	"Glute Bridge",	"Landmine Press",	"Pull-up / Band-Assisted",	"Romanian Deadlift",	"Start Slam Ball Throw",
-"Bird Dog",	"DB Front Squat",	"Glute Bridge OH Extension",	"Lat Pull Down",	"Push ups",	"Seated Row",	"Step-up"
+  "Alt V Ups","Alt Leg Lowers","Arnold Press","Back Squat","Banded Chest Press OH Extension",
+  "Banded Hamstring Curls","Banded Hip Extension","Battle Rope Wave","Bicycles","Bird Dog",
+  "Box Jump","Broad Jump","Bulgarian Split Squat","Cable Pull-Through","Centipede",
+  "Copenhagen Plank","Copenhagen Plank (Variation)","DB Bench Press","DB Box Step Up",
+  "DB Front Squat","DB Snatch","DB Thrusters","Dead Bug","Dead Bug (Banded)",
+  "Dual KB Front Squat","Face Pull","Farmers Carry","Floor Chest Press","Glute Bridge",
+  "Glute Bridge OH Extension","Goblet Squat","Half Kneeling Slam Ball Throw",
+  "Half-Kneeling Shoulder Press","Hip Hinge","Hip Thrust","Hollow Hold","KB Clean",
+  "KB Swing","Landmine Press","Lat Pull Down","Leg Lowers","Med Ball Rotational Throw",
+  "Med Ball Slam","Nordic Curl","Overhead Press","Pallof Press","Power Push Ups",
+  "Pull Ups","Pull-up / Band-Assisted","Push ups","Push-up Variation","PVC OH Squat",
+  "Quadruped Med Ball Twist","RDL","Rear Foot Elevated Split Squat","Renegade Row",
+  "Reverse Fly","Reverse Lunge","Romanian Deadlift","Seated Row","Seated Shoulder Press",
+  "Single Arm KB Front Squat","Single Leg Hip Thrust","Single Leg Layouts","Single-Leg RDL",
+  "Slam Ball","Sled Push","Squat Jump","Start Slam Ball Throw","Step-up","Suitcase Carry",
+  "TRX Chest Press","TRX Plank Pike","TRX Row","TRX YTWs","Toes to Bar","Trap Bar Deadlift",
+];
+
+const TEST_METRICS = [
+  { key: "pushups", label: "Push-ups", unit: "reps in 30s", color: C.teal },
+  { key: "pullups", label: "Pull-ups", unit: "unbroken reps", color: C.gold },
+  { key: "rdl", label: "RDL", unit: "lbs", color: "#A78BFA" },
 ];
 
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -48,16 +61,12 @@ function getSupersetLabels(exercises) {
 }
 
 // ─── MOVEMENT HISTORY HELPER ──────────────────────────────────────────────────
-// Given an exercise name, athlete id, and all logs+workouts, find the most recent
-// logged sets for that exercise name (from a different workout than current).
 function getLastSets(exerciseName, athleteId, allLogs, allWorkouts, currentWorkoutId) {
   if (!exerciseName) return null;
   const name = exerciseName.toLowerCase().trim();
-  // find all logs for this athlete, sorted most recent first
   const athleteLogs = allLogs
     .filter((l) => l.athleteId === athleteId && l.workoutId !== currentWorkoutId)
     .sort((a, b) => (b.loggedAt || 0) - (a.loggedAt || 0));
-
   for (const log of athleteLogs) {
     const wkt = allWorkouts.find((w) => w.id === log.workoutId);
     if (!wkt) continue;
@@ -96,9 +105,9 @@ Warm-up: 3-4 activation exercises. Blocks 1-3: superset pairs (strength+power). 
   });
   const data = await res.json();
   const text = data.content?.find((b) => b.type === "text")?.text || "";
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("No JSON");
-  const parsed = JSON.parse(match[0]);
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("No JSON");
+  const parsed = JSON.parse(jsonMatch[0]);
   return parsed.blocks.map((b) => ({ id: uid(), name: b.name, exercises: b.exercises.map((e) => ({ id: uid(), name: e.name, sets: e.sets, reps: e.reps, load: e.load, note: e.note, pairId: e.pairId || null })) }));
 }
 
@@ -123,7 +132,7 @@ function StatCard({ label, value, accent }) {
   return <div style={{ background: C.surfaceUp, borderRadius: 12, padding: "14px 16px", border: `1px solid ${C.border}` }}><p style={{ margin: 0, fontSize: 11, color: C.muted, letterSpacing: ".06em", textTransform: "uppercase" }}>{label}</p><p style={{ margin: "5px 0 0", fontSize: 26, fontWeight: 800, color: accent || C.white }}>{value}</p></div>;
 }
 
-// ─── EXERCISE ROW (builder) ───────────────────────────────────────────────────
+// ─── EXERCISE ROW ─────────────────────────────────────────────────────────────
 function ExRow({ ex, label, blockExercises, onChange, onRemove, onPair, onUnpair, onSwap }) {
   const f = (k) => (e) => onChange({ ...ex, [k]: e.target.value });
   const inp = (w) => ({ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 7, color: C.white, padding: "6px 8px", fontSize: 13, width: w, fontFamily: "inherit", boxSizing: "border-box" });
@@ -139,11 +148,9 @@ function ExRow({ ex, label, blockExercises, onChange, onRemove, onPair, onUnpair
         <input value={ex.load} onChange={f("load")} placeholder="Load" style={inp("100%")} />
         <input value={ex.note} onChange={f("note")} placeholder="Coaching cue" style={inp("100%")} />
         <button onClick={onSwap} style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 6, color: C.mutedUp, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit" }}>⇄ Swap</button>
-        {isPaired
-          ? <button onClick={onUnpair} style={{ background: "none", border: `1px solid ${C.gold}33`, borderRadius: 6, color: C.gold, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit" }}>Unpair</button>
-          : canPair
-            ? <button onClick={onPair} style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit" }}>+ Super</button>
-            : <div />}
+        {isPaired ? <button onClick={onUnpair} style={{ background: "none", border: `1px solid ${C.gold}33`, borderRadius: 6, color: C.gold, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit" }}>Unpair</button>
+          : canPair ? <button onClick={onPair} style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit" }}>+ Super</button>
+          : <div />}
         <button onClick={onRemove} style={{ background: "none", border: "none", color: C.red, cursor: "pointer", fontSize: 18, padding: 0, lineHeight: 1 }}>×</button>
       </div>
     </div>
@@ -152,16 +159,16 @@ function ExRow({ ex, label, blockExercises, onChange, onRemove, onPair, onUnpair
 
 // ─── SWAP MODAL ───────────────────────────────────────────────────────────────
 function SwapModal({ exercise, onSwap, onClose }) {
-  const [name, setName] = useState("");
+  const [swapName, setSwapName] = useState("");
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 14, width: "100%", maxWidth: 380, padding: 22 }}>
         <h3 style={{ margin: "0 0 6px", color: C.white, fontSize: 16 }}>Swap exercise</h3>
         <p style={{ margin: "0 0 16px", color: C.muted, fontSize: 13 }}>Replacing: <strong style={{ color: C.white }}>{exercise.name || "unnamed"}</strong></p>
-        <input list="exbank" value={name} onChange={(e) => setName(e.target.value)} placeholder="New exercise name" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "10px 12px", fontSize: 14, width: "100%", boxSizing: "border-box", fontFamily: "inherit", marginBottom: 14 }} />
+        <input list="exbank" value={swapName} onChange={(e) => setSwapName(e.target.value)} placeholder="New exercise name" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "10px 12px", fontSize: 14, width: "100%", boxSizing: "border-box", fontFamily: "inherit", marginBottom: 14 }} />
         <div style={{ display: "flex", gap: 8 }}>
           <Btn variant="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Btn>
-          <Btn onClick={() => { if (name.trim()) onSwap(name.trim()); }} disabled={!name.trim()} style={{ flex: 1 }}>Swap</Btn>
+          <Btn onClick={() => { if (swapName.trim()) onSwap(swapName.trim()); }} disabled={!swapName.trim()} style={{ flex: 1 }}>Swap</Btn>
         </div>
       </div>
     </div>
@@ -209,18 +216,16 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
     setBlocks((bs) => bs.map((b, i) => i !== pairTarget.bi ? b : { ...b, exercises: b.exercises.map((e) => e.id === pairTarget.exId || e.id === partnerId ? { ...e, pairId: newPairId } : e) }));
     setPairTarget(null);
   };
-  const handleUnpair = (bi, exId) => setBlocks((bs) => bs.map((b, i) => { if (i !== bi) return b; const ex = b.exercises.find((e) => e.id === exId); if (!ex?.pairId) return b; return { ...b, exercises: b.exercises.map((e) => e.pairId === ex.pairId ? { ...e, pairId: null } : e) }; }));
+  const handleUnpair = (bi, exId) => setBlocks((bs) => bs.map((b, i) => { if (i !== bi) return b; const exItem = b.exercises.find((e) => e.id === exId); if (!exItem?.pairId) return b; return { ...b, exercises: b.exercises.map((e) => e.pairId === exItem.pairId ? { ...e, pairId: null } : e) }; }));
   const handleSwapConfirm = (newName) => {
     if (!swapTarget) return;
     const { bi, exId } = swapTarget;
     setBlocks((bs) => bs.map((b, i) => i !== bi ? b : { ...b, exercises: b.exercises.map((e) => e.id === exId ? { ...e, name: newName } : e) }));
     setSwapTarget(null);
   };
-
   const toggleAthlete = (id) => setAssignees((a) => a.includes(id) ? a.filter((x) => x !== id) : [...a, id]);
   const poolGroups = [...new Set(athletes.map((a) => a.event).filter(Boolean))];
   const selectGroup = (group) => { const ids = athletes.filter((a) => a.event === group).map((a) => a.id); const allOn = ids.every((id) => assignees.includes(id)); setAssignees((a) => allOn ? a.filter((x) => !ids.includes(x)) : [...new Set([...a, ...ids])]); };
-
   const handleGen = async () => {
     const target = athletes.find((a) => assignees.includes(a.id)) || athletes[0];
     if (!target) return;
@@ -229,14 +234,12 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
     catch { setGenErr("Generation failed — check API key in .env"); }
     setGenerating(false);
   };
-
   const handleSave = async () => {
     if (!title || assignees.length === 0) return;
     setSaving(true);
     await onSave({ id: editWkt?.id || uid(), title, date, assignees, blocks });
     setSaving(false);
   };
-
   const inp = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
   const filteredAthletes = athletes.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -247,12 +250,10 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
           <h2 style={{ margin: 0, color: C.white, fontSize: 20, fontWeight: 800 }}>{editWkt ? "Edit workout" : "New workout"}</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
         </div>
-
         <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 12, marginBottom: 18 }}>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>TITLE</label><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Strength Power – Week 5" style={inp} /></div>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>DATE</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp} /></div>
         </div>
-
         <div style={{ marginBottom: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <label style={{ fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: ".05em" }}>Assign to</label>
@@ -262,11 +263,11 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
             <div style={{ width: 160, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden", flexShrink: 0 }}>
               <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Groups</div>
               <div style={{ padding: 6 }}>
-                {poolGroups.map((g) => { const ids = athletes.filter((a) => a.event === g).map((a) => a.id); const allOn = ids.length > 0 && ids.every((id) => assignees.includes(id)); const someOn = ids.some((id) => assignees.includes(id)); return (
+                {poolGroups.map((g) => { const gIds = athletes.filter((a) => a.event === g).map((a) => a.id); const allOn = gIds.length > 0 && gIds.every((id) => assignees.includes(id)); const someOn = gIds.some((id) => assignees.includes(id)); return (
                   <button key={g} onClick={() => selectGroup(g)} style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: allOn ? C.tealGlow : "transparent", border: `1px solid ${allOn || someOn ? C.teal : "transparent"}`, borderRadius: 7, padding: "6px 8px", cursor: "pointer", marginBottom: 3, fontFamily: "inherit" }}>
                     <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${allOn ? C.teal : someOn ? C.teal : C.muted}`, background: allOn ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{allOn && <span style={{ color: C.bg, fontSize: 9, fontWeight: 900 }}>✓</span>}{someOn && !allOn && <span style={{ color: C.teal, fontSize: 11, lineHeight: 1 }}>–</span>}</div>
                     <span style={{ fontSize: 12, color: allOn ? C.teal : C.white, flex: 1, textAlign: "left" }}>{g}</span>
-                    <span style={{ fontSize: 10, color: C.muted }}>{ids.length}</span>
+                    <span style={{ fontSize: 10, color: C.muted }}>{gIds.length}</span>
                   </button>
                 ); })}
                 {poolGroups.length === 0 && <p style={{ color: C.muted, fontSize: 12, padding: "6px 4px", margin: 0 }}>No groups</p>}
@@ -288,19 +289,16 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
             </div>
           </div>
         </div>
-
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 20, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 13, fontWeight: 800, color: C.teal, whiteSpace: "nowrap" }}>✦ AI Generate</span>
           <input value={focus} onChange={(e) => setFocus(e.target.value)} placeholder="e.g. strength power — DB front squat + box jumps" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 7, color: C.white, padding: "7px 10px", fontSize: 13, fontFamily: "inherit", flex: 1, minWidth: 180 }} />
           <Btn onClick={handleGen} disabled={generating} small>{generating ? "Generating…" : "Generate"}</Btn>
           {genErr && <span style={{ color: C.red, fontSize: 12 }}>{genErr}</span>}
         </div>
-
         <datalist id="exbank">{EXERCISE_BANK.map((e) => <option key={e} value={e} />)}</datalist>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 52px 60px 80px 1fr 70px 70px 24px", gap: 5, marginBottom: 6 }}>
           {["Exercise","Sets","Reps","Load","Coaching cue","","",""].map((h, i) => <span key={i} style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>{h}</span>)}
         </div>
-
         {blocks.map((block, bi) => {
           const labels = getSupersetLabels(block.exercises);
           const rendered = []; const seen = new Set();
@@ -332,7 +330,6 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
             </div>
           );
         })}
-
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8, borderTop: `1px solid ${C.border}`, paddingTop: 18 }}>
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
           <Btn onClick={handleSave} disabled={!title || assignees.length === 0 || saving}>{saving ? "Saving…" : `Save workout (${assignees.length} athlete${assignees.length !== 1 ? "s" : ""})`}</Btn>
@@ -344,30 +341,24 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
   );
 }
 
-// ─── SESSION DETAIL MODAL (coach view of a logged session) ────────────────────
+// ─── SESSION DETAIL MODAL ─────────────────────────────────────────────────────
 function SessionDetailModal({ log, workout, athlete, onClose }) {
   if (!log || !workout) return null;
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.82)", zIndex: 200, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
       <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 640, padding: 26 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-          <div>
-            <h2 style={{ margin: 0, color: C.white, fontSize: 18, fontWeight: 800 }}>{workout.title}</h2>
-            <p style={{ margin: "3px 0 0", color: C.muted, fontSize: 13 }}>{athlete?.name} · {fmtDate(log.date)}</p>
-          </div>
+          <div><h2 style={{ margin: 0, color: C.white, fontSize: 18, fontWeight: 800 }}>{workout.title}</h2><p style={{ margin: "3px 0 0", color: C.muted, fontSize: 13 }}>{athlete?.name} · {fmtDate(log.date)}</p></div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
         </div>
-
         {log.rpe && <div style={{ background: C.surfaceUp, borderRadius: 10, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}><span style={{ fontSize: 12, color: C.muted }}>RPE</span><span style={{ fontSize: 28, fontWeight: 900, color: C.gold }}>{log.rpe}<span style={{ fontSize: 14, color: C.muted }}>/10</span></span>{log.note && <span style={{ fontSize: 13, color: C.mutedUp, fontStyle: "italic", flex: 1 }}>"{log.note}"</span>}</div>}
-
         {workout.blocks?.map((block, bi) => {
           const labels = getSupersetLabels(block.exercises);
-          const seen = new Set();
-          const rendered = [];
+          const seen = new Set(); const rendered = [];
           block.exercises.forEach((ex) => {
             if (seen.has(ex.id)) return;
-            const sets = log.sets?.[ex.id] || [];
-            const loggedSets = sets.filter((s) => s.reps || s.load || s.done);
+            const exSets = log.sets?.[ex.id] || [];
+            const loggedSets = exSets.filter((s) => s.reps || s.load || s.done);
             if (ex.pairId) {
               const partner = block.exercises.find((e) => e.id !== ex.id && e.pairId === ex.pairId);
               if (partner) {
@@ -379,10 +370,7 @@ function SessionDetailModal({ log, workout, athlete, onClose }) {
                     {[{ e: ex, s: loggedSets }, { e: partner, s: partnerSets }].map(({ e, s }) => (
                       <div key={e.id} style={{ marginBottom: 8 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}><span style={{ color: C.white, fontWeight: 600, fontSize: 13 }}>{e.name}</span><span style={{ color: C.muted, fontSize: 11 }}>{e.sets}×{e.reps}</span></div>
-                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                          {s.length > 0 ? s.map((row, i) => <div key={i} style={{ fontSize: 12, background: row.done ? C.tealGlow : C.surfaceUp, border: `1px solid ${row.done ? C.teal : C.border}`, borderRadius: 6, padding: "3px 10px", color: row.done ? C.teal : C.mutedUp }}>S{i + 1}: {row.reps || "—"} @ {row.load || "—"}</div>)
-                            : <span style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Not logged</span>}
-                        </div>
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{s.length > 0 ? s.map((row, i) => <div key={i} style={{ fontSize: 12, background: row.done ? C.tealGlow : C.surfaceUp, border: `1px solid ${row.done ? C.teal : C.border}`, borderRadius: 6, padding: "3px 10px", color: row.done ? C.teal : C.mutedUp }}>S{i + 1}: {row.reps || "—"} @ {row.load || "—"}</div>) : <span style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Not logged</span>}</div>
                       </div>
                     ))}
                   </div>
@@ -394,10 +382,7 @@ function SessionDetailModal({ log, workout, athlete, onClose }) {
             rendered.push(
               <div key={ex.id} style={{ background: C.surfaceUp, borderRadius: 10, padding: "10px 14px", marginBottom: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ color: C.white, fontWeight: 600, fontSize: 14 }}>{ex.name}</span><span style={{ color: C.muted, fontSize: 12 }}>{ex.sets}×{ex.reps}{ex.load ? ` @ ${ex.load}` : ""}</span></div>
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  {loggedSets.length > 0 ? loggedSets.map((row, i) => <div key={i} style={{ fontSize: 12, background: row.done ? C.tealGlow : C.bg, border: `1px solid ${row.done ? C.teal : C.border}`, borderRadius: 6, padding: "3px 10px", color: row.done ? C.teal : C.mutedUp }}>S{i + 1}: {row.reps || "—"} @ {row.load || "—"}</div>)
-                    : <span style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Not logged</span>}
-                </div>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{loggedSets.length > 0 ? loggedSets.map((row, i) => <div key={i} style={{ fontSize: 12, background: row.done ? C.tealGlow : C.bg, border: `1px solid ${row.done ? C.teal : C.border}`, borderRadius: 6, padding: "3px 10px", color: row.done ? C.teal : C.mutedUp }}>S{i + 1}: {row.reps || "—"} @ {row.load || "—"}</div>) : <span style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Not logged</span>}</div>
               </div>
             );
           });
@@ -409,9 +394,7 @@ function SessionDetailModal({ log, workout, athlete, onClose }) {
             </div>
           );
         })}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-          <Btn variant="ghost" onClick={onClose}>Close</Btn>
-        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}><Btn variant="ghost" onClick={onClose}>Close</Btn></div>
       </div>
     </div>
   );
@@ -421,57 +404,26 @@ function SessionDetailModal({ log, workout, athlete, onClose }) {
 function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSave, onClose }) {
   const [sets, setSets] = useState(() => {
     const init = {};
-    workout.blocks.forEach((b) => b.exercises.forEach((ex) => {
-      init[ex.id] = existingLog?.sets?.[ex.id] || Array.from({ length: parseInt(ex.sets) || 3 }, () => ({ reps: "", load: "", done: false }));
-    }));
+    workout.blocks.forEach((b) => b.exercises.forEach((ex) => { init[ex.id] = existingLog?.sets?.[ex.id] || Array.from({ length: parseInt(ex.sets) || 3 }, () => ({ reps: "", load: "", done: false })); }));
     return init;
   });
   const [note, setNote] = useState(existingLog?.note || "");
-  const [blockNotes, setBlockNotes] = useState(() => {
-    const init = {};
-    workout.blocks.forEach((b) => { init[b.id] = existingLog?.blockNotes?.[b.id] || ""; });
-    return init;
-  });
+  const [blockNotes, setBlockNotes] = useState(() => { const init = {}; workout.blocks.forEach((b) => { init[b.id] = existingLog?.blockNotes?.[b.id] || ""; }); return init; });
   const [rpe, setRpe] = useState(existingLog?.rpe || "");
   const [saving, setSaving] = useState(false);
-
   const updSet = (exId, idx, k, v) => setSets((s) => ({ ...s, [exId]: s[exId].map((r, i) => i === idx ? { ...r, [k]: v } : r) }));
-
-  // Auto-fill prescribed reps on checkmark if reps field is empty
   const toggleDone = (exId, idx, prescribedReps) => {
-    setSets((s) => {
-      const current = s[exId][idx];
-      const nowDone = !current.done;
-      const reps = current.reps || (nowDone ? prescribedReps : "");
-      return { ...s, [exId]: s[exId].map((r, i) => i === idx ? { ...r, done: nowDone, reps } : r) };
-    });
+    setSets((s) => { const current = s[exId][idx]; const nowDone = !current.done; const reps = current.reps || (nowDone ? prescribedReps : ""); return { ...s, [exId]: s[exId].map((r, i) => i === idx ? { ...r, done: nowDone, reps } : r) }; });
   };
+  const handleSave = async () => { setSaving(true); await onSave({ athleteId, workoutId: workout.id, date: workout.date, sets, note, blockNotes, rpe }); setSaving(false); };
+  const inpSm = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.white, padding: "4px 6px", fontSize: 13, textAlign: "center", fontFamily: "inherit", boxSizing: "border-box" };
 
-  const handleSave = async () => {
-    setSaving(true);
-    await onSave({ athleteId, workoutId: workout.id, date: workout.date, sets, note, blockNotes, rpe });
-    setSaving(false);
-  };
-
-  const inpSm = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.white, padding: "4px 6px", fontSize: 13, textAlign: "center", fontFamily: "inherit", boxSizing: "border-box", inputMode: "numeric" };
-
-  const renderExLog = (ex, bi, isSupersetMember = false) => {
+  const renderExLog = (ex, isSupersetMember = false) => {
     const history = getLastSets(ex.name, athleteId, allLogs, allWorkouts, workout.id);
     return (
       <div key={ex.id} style={{ background: isSupersetMember ? "transparent" : C.surfaceUp, borderRadius: isSupersetMember ? 8 : 10, padding: "10px 12px", marginBottom: isSupersetMember ? 0 : 8, border: isSupersetMember ? `1px solid ${C.border}` : "none" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-          <span style={{ color: C.white, fontWeight: 700, fontSize: 14 }}>{ex.name}</span>
-          <span style={{ color: C.muted, fontSize: 12 }}>{ex.sets}×{ex.reps}{ex.load ? ` @ ${ex.load}` : ""}</span>
-        </div>
-        {/* Movement history */}
-        {history && (
-          <div style={{ display: "flex", gap: 6, marginBottom: 7, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11, color: C.muted }}>Last ({fmtDate(history.date)}):</span>
-            {history.sets.map((s, i) => (
-              <span key={i} style={{ fontSize: 11, color: C.mutedUp, background: C.bg, borderRadius: 4, padding: "1px 7px" }}>S{i + 1}: {s.reps || "—"} @ {s.load || "—"}</span>
-            ))}
-          </div>
-        )}
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ color: C.white, fontWeight: 700, fontSize: 14 }}>{ex.name}</span><span style={{ color: C.muted, fontSize: 12 }}>{ex.sets}×{ex.reps}{ex.load ? ` @ ${ex.load}` : ""}</span></div>
+        {history && <div style={{ display: "flex", gap: 6, marginBottom: 7, flexWrap: "wrap" }}><span style={{ fontSize: 11, color: C.muted }}>Last ({fmtDate(history.date)}):</span>{history.sets.map((s, i) => <span key={i} style={{ fontSize: 11, color: C.mutedUp, background: C.bg, borderRadius: 4, padding: "1px 7px" }}>S{i + 1}: {s.reps || "—"} @ {s.load || "—"}</span>)}</div>}
         {ex.note && <p style={{ margin: "0 0 8px", fontSize: 12, color: C.teal, fontStyle: "italic" }}>"{ex.note}"</p>}
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
           {(sets[ex.id] || []).map((row, idx) => (
@@ -495,7 +447,6 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
           <div><h2 style={{ margin: 0, color: C.white, fontSize: 18, fontWeight: 800 }}>{workout.title}</h2><p style={{ margin: "3px 0 0", color: C.muted, fontSize: 12 }}>{fmtDate(workout.date)}</p></div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
         </div>
-
         {workout.blocks.map((block, bi) => {
           const labels = getSupersetLabels(block.exercises);
           const seen = new Set(); const rendered = [];
@@ -508,38 +459,28 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
                 rendered.push(
                   <div key={ex.pairId} style={{ background: `${C.gold}08`, border: `1px solid ${C.gold}33`, borderRadius: 12, padding: 10, marginBottom: 10 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}><div style={{ width: 20, height: 20, borderRadius: 5, background: C.gold, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 9, fontWeight: 900, color: C.bg }}>{labels[ex.id]?.[0]}</span></div><span style={{ fontSize: 11, fontWeight: 800, color: C.gold }}>SUPERSET</span></div>
-                    {renderExLog(ex, bi, true)}<div style={{ height: 6 }} />{renderExLog(partner, bi, true)}
+                    {renderExLog(ex, true)}<div style={{ height: 6 }} />{renderExLog(partner, true)}
                   </div>
                 );
                 return;
               }
             }
             seen.add(ex.id);
-            rendered.push(renderExLog(ex, bi, false));
+            rendered.push(renderExLog(ex, false));
           });
           return (
             <div key={block.id} style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}><div style={{ width: 3, height: 14, borderRadius: 2, background: BLOCK_COLORS[bi] || C.muted }} /><span style={{ fontSize: 11, fontWeight: 800, color: BLOCK_COLORS[bi] || C.muted, textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span></div>
               {rendered}
-              <textarea
-                value={blockNotes[block.id] || ""}
-                onChange={(e) => setBlockNotes((n) => ({ ...n, [block.id]: e.target.value }))}
-                placeholder={`Notes for ${block.name}…`}
-                rows={2}
-                style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, padding: "7px 10px", fontSize: 12, width: "100%", boxSizing: "border-box", resize: "none", fontFamily: "inherit", marginTop: 6, fontStyle: "italic" }}
-              />
+              <textarea value={blockNotes[block.id] || ""} onChange={(e) => setBlockNotes((n) => ({ ...n, [block.id]: e.target.value }))} placeholder={`Notes for ${block.name}…`} rows={2} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, padding: "7px 10px", fontSize: 12, width: "100%", boxSizing: "border-box", resize: "none", fontFamily: "inherit", marginTop: 6, fontStyle: "italic" }} />
             </div>
           );
         })}
-
         <div style={{ display: "grid", gridTemplateColumns: "1fr 90px", gap: 12, marginBottom: 18 }}>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>SESSION NOTES</label><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="How did it feel? Any PRs? Anything to flag?" rows={3} style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 13, width: "100%", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit" }} /></div>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>RPE 1–10</label><input value={rpe} onChange={(e) => setRpe(e.target.value)} type="number" min="1" max="10" placeholder="7" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.gold, padding: "9px 8px", fontSize: 28, fontWeight: 800, width: "100%", boxSizing: "border-box", textAlign: "center", fontFamily: "inherit" }} /></div>
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-          <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
-          <Btn onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save session"}</Btn>
-        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save session"}</Btn></div>
       </div>
     </div>
   );
@@ -547,21 +488,13 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
 
 // ─── EDIT ATHLETE MODAL ───────────────────────────────────────────────────────
 function EditAthleteModal({ athlete, onSave, onDelete, onClose }) {
-  const [name, setName] = useState(athlete.name);
-  const [event, setEvent] = useState(athlete.event || "");
-  const [pin, setPin] = useState(athlete.pin);
+  const [eName, setEName] = useState(athlete.name);
+  const [eEvent, setEEvent] = useState(athlete.event || "");
+  const [ePin, setEPin] = useState(athlete.pin);
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
-
-  const handleSave = async () => {
-    if (!name || !pin) return;
-    setSaving(true);
-    await onSave({ ...athlete, name, event, pin });
-    setSaving(false);
-  };
-
+  const handleSave = async () => { if (!eName || !ePin) return; setSaving(true); await onSave({ ...athlete, name: eName, event: eEvent, pin: ePin }); setSaving(false); };
   const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
-
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 400, padding: 26 }}>
@@ -569,21 +502,149 @@ function EditAthleteModal({ athlete, onSave, onDelete, onClose }) {
           <h2 style={{ margin: 0, color: C.white, fontSize: 18, fontWeight: 800 }}>Edit athlete</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
         </div>
-        {[["Full name","name",name,setName],["Pool group","event",event,setEvent],["PIN","pin",pin,setPin]].map(([label,key,val,setter]) => (
-          <div key={key} style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>{label.toUpperCase()}</label>
-            <input value={val} onChange={(e) => setter(e.target.value)} style={inp} />
-          </div>
+        {[["FULL NAME", eName, setEName], ["POOL GROUP", eEvent, setEEvent], ["PIN", ePin, setEPin]].map(([label, val, setter]) => (
+          <div key={label} style={{ marginBottom: 14 }}><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>{label}</label><input value={val} onChange={(e) => setter(e.target.value)} style={inp} /></div>
         ))}
         <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-          {!confirming
-            ? <button onClick={() => setConfirming(true)} style={{ background: "none", border: `1px solid rgba(255,77,77,0.3)`, borderRadius: 10, color: C.red, fontSize: 13, fontWeight: 700, padding: "9px 16px", cursor: "pointer", fontFamily: "inherit" }}>Delete</button>
+          {!confirming ? <button onClick={() => setConfirming(true)} style={{ background: "none", border: `1px solid rgba(255,77,77,0.3)`, borderRadius: 10, color: C.red, fontSize: 13, fontWeight: 700, padding: "9px 16px", cursor: "pointer", fontFamily: "inherit" }}>Delete</button>
             : <button onClick={onDelete} style={{ background: C.red, border: "none", borderRadius: 10, color: "#fff", fontSize: 13, fontWeight: 700, padding: "9px 16px", cursor: "pointer", fontFamily: "inherit" }}>Confirm delete</button>}
-          <div style={{ flex: 1 }} />
-          <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
-          <Btn onClick={handleSave} disabled={!name || !pin || saving}>{saving ? "Saving…" : "Save"}</Btn>
+          <div style={{ flex: 1 }} /><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn onClick={handleSave} disabled={!eName || !ePin || saving}>{saving ? "Saving…" : "Save"}</Btn>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── TEST SCORE MODAL ─────────────────────────────────────────────────────────
+function TestScoreModal({ athletes, onSave, onClose }) {
+  const [selectedId, setSelectedId] = useState(athletes[0]?.id || "");
+  const [selectedName, setSelectedName] = useState(athletes[0]?.name || "");
+  const [date, setDate] = useState(today());
+  const [scores, setScores] = useState({ pushups: "", pullups: "", rdl: "" });
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const filtered = athletes.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
+  const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
+  const handleSave = async () => {
+    if (!selectedId) return;
+    setSaving(true);
+    await onSave({ id: uid(), athleteId: selectedId, date, pushups: scores.pushups ? parseInt(scores.pushups) : null, pullups: scores.pullups ? parseInt(scores.pullups) : null, rdl: scores.rdl ? parseFloat(scores.rdl) : null, notes, createdAt: Date.now() });
+    setScores({ pushups: "", pullups: "", rdl: "" }); setNotes(""); setSaving(false);
+  };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 520, padding: 28, boxShadow: `0 0 60px ${C.tealGlow}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
+          <h2 style={{ margin: 0, color: C.white, fontSize: 20, fontWeight: 800 }}>Enter test scores</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 12, marginBottom: 18 }}>
+          <div style={{ position: "relative" }}>
+            <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>ATHLETE</label>
+            <input value={search || selectedName} onChange={(e) => { setSearch(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} placeholder="Search athlete…" style={inp} />
+            {showDropdown && search && (
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, zIndex: 10, maxHeight: 180, overflowY: "auto", marginTop: 4 }}>
+                {filtered.map((a) => <button key={a.id} onClick={() => { setSelectedId(a.id); setSelectedName(a.name); setSearch(""); setShowDropdown(false); }} style={{ display: "block", width: "100%", background: "transparent", border: "none", borderBottom: `1px solid ${C.border}`, color: C.white, padding: "8px 12px", textAlign: "left", cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>{a.name} <span style={{ color: C.muted, fontSize: 11 }}>{a.event}</span></button>)}
+              </div>
+            )}
+          </div>
+          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>DATE</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp} /></div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 18 }}>
+          {TEST_METRICS.map((m) => (
+            <div key={m.key} style={{ background: C.bg, borderRadius: 12, padding: 14, border: `1px solid ${C.border}`, textAlign: "center" }}>
+              <p style={{ margin: "0 0 4px", fontSize: 11, color: m.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>{m.label}</p>
+              <input value={scores[m.key]} onChange={(e) => setScores((s) => ({ ...s, [m.key]: e.target.value }))} inputMode="numeric" placeholder="—" style={{ background: "transparent", border: "none", borderBottom: `2px solid ${m.color}`, color: C.white, fontSize: 28, fontWeight: 800, width: "100%", textAlign: "center", fontFamily: "inherit", outline: "none", padding: "4px 0" }} />
+              <p style={{ margin: "6px 0 0", fontSize: 10, color: C.muted }}>{m.unit}</p>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginBottom: 18 }}><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>NOTES (optional)</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any context — injury, conditions, etc." rows={2} style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 13, width: "100%", boxSizing: "border-box", resize: "none", fontFamily: "inherit" }} /></div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn onClick={handleSave} disabled={!selectedId || saving || (!scores.pushups && !scores.pullups && !scores.rdl)}>{saving ? "Saving…" : "Save scores"}</Btn></div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ATHLETE PROGRESS CARD ────────────────────────────────────────────────────
+function AthleteProgressCard({ athlete, testScores }) {
+  const myScores = testScores.filter((s) => s.athleteId === athlete.id).sort((a, b) => a.date.localeCompare(b.date));
+  if (myScores.length === 0) return null;
+  const latest = myScores[myScores.length - 1];
+  const first = myScores[0];
+  const hasDelta = myScores.length >= 2;
+  const getDelta = (key) => { if (!hasDelta || !latest[key] || !first[key]) return null; const diff = latest[key] - first[key]; const pct = ((diff / first[key]) * 100).toFixed(0); return { diff, pct }; };
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: `0 0 30px ${C.tealGlow}` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div><p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.teal, textTransform: "uppercase", letterSpacing: ".06em" }}>Your progress</p>{hasDelta ? <p style={{ margin: "2px 0 0", fontSize: 11, color: C.muted }}>{fmtDate(first.date)} → {fmtDate(latest.date)}</p> : <p style={{ margin: "2px 0 0", fontSize: 11, color: C.muted }}>Baseline — {fmtDate(latest.date)}</p>}</div>
+        <span style={{ fontSize: 11, color: C.muted }}>{myScores.length} test{myScores.length !== 1 ? "s" : ""}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+        {TEST_METRICS.map((m) => {
+          const val = latest[m.key];
+          const d = getDelta(m.key);
+          if (!val) return <div key={m.key} style={{ background: C.bg, borderRadius: 10, padding: "12px 10px", textAlign: "center", border: `1px solid ${C.border}` }}><p style={{ margin: 0, fontSize: 10, color: C.muted, textTransform: "uppercase" }}>{m.label}</p><p style={{ margin: "6px 0 0", fontSize: 18, color: C.muted }}>—</p></div>;
+          return (
+            <div key={m.key} style={{ background: C.bg, borderRadius: 10, padding: "12px 10px", textAlign: "center", border: `1px solid ${m.color}33` }}>
+              <p style={{ margin: 0, fontSize: 10, color: m.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>{m.label}</p>
+              <p style={{ margin: "6px 0 2px", fontSize: 24, fontWeight: 900, color: C.white }}>{val}{m.key === "rdl" && <span style={{ fontSize: 11, color: C.muted, fontWeight: 400, marginLeft: 3 }}>lbs</span>}</p>
+              {d && <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: d.diff >= 0 ? C.teal : C.red }}>{d.diff >= 0 ? "+" : ""}{d.diff} ({d.diff >= 0 ? "+" : ""}{d.pct}%)</p>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── COACH PROGRESS DASHBOARD ─────────────────────────────────────────────────
+function ProgressDashboard({ athletes, testScores, onEnterScores }) {
+  const [groupFilter, setGroupFilter] = useState("All");
+  const [metricFilter, setMetricFilter] = useState("pushups");
+  const [search, setSearch] = useState("");
+  const poolGroups = [...new Set(athletes.map((a) => a.event).filter(Boolean))];
+  const filteredAthletes = athletes.filter((a) => { if (groupFilter !== "All" && a.event !== groupFilter) return false; if (search && !a.name.toLowerCase().includes(search.toLowerCase())) return false; return true; });
+  const athleteData = filteredAthletes.map((a) => {
+    const scores = testScores.filter((s) => s.athleteId === a.id && s[metricFilter] != null).sort((x, y) => x.date.localeCompare(y.date));
+    const first = scores[0]; const latest = scores[scores.length - 1];
+    const diff = first && latest && scores.length >= 2 ? latest[metricFilter] - first[metricFilter] : null;
+    const pct = diff !== null && first[metricFilter] ? ((diff / first[metricFilter]) * 100).toFixed(0) : null;
+    return { athlete: a, first, latest, diff, pct, count: scores.length };
+  }).filter((d) => d.latest);
+  const sorted = [...athleteData].sort((a, b) => (b.diff || 0) - (a.diff || 0));
+  const metric = TEST_METRICS.find((m) => m.key === metricFilter);
+  const groupAvg = (group) => { const gIds = (group === "All" ? athletes : athletes.filter((a) => a.event === group)).map((a) => a.id); const vals = athleteData.filter((d) => gIds.includes(d.athlete.id) && d.diff !== null); if (!vals.length) return null; return (vals.reduce((s, d) => s + d.diff, 0) / vals.length).toFixed(1); };
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div><h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Progress</h1><p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>{testScores.length} test entries · {athletes.filter((a) => testScores.some((s) => s.athleteId === a.id)).length} athletes tested</p></div>
+        <Btn onClick={onEnterScores}>+ Enter scores</Btn>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {TEST_METRICS.map((m) => <button key={m.key} onClick={() => setMetricFilter(m.key)} style={{ border: `1px solid ${metricFilter === m.key ? m.color : C.border}`, borderRadius: 20, padding: "6px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: metricFilter === m.key ? `${m.color}22` : "transparent", color: metricFilter === m.key ? m.color : C.mutedUp }}>{m.label}</button>)}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1 }}>
+          {["All", ...poolGroups].map((g) => { const avg = groupAvg(g); return <button key={g} onClick={() => setGroupFilter(g)} style={{ border: `1px solid ${groupFilter === g ? C.teal : C.border}`, borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: groupFilter === g ? C.tealGlow : "transparent", color: groupFilter === g ? C.teal : C.mutedUp }}>{g}{avg !== null && <span style={{ opacity: .7 }}> avg +{avg}</span>}</button>; })}
+        </div>
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search athlete…" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "7px 12px", fontSize: 13, fontFamily: "inherit", width: 180 }} />
+      </div>
+      {sorted.length === 0 && <div style={{ textAlign: "center", padding: "48px 0", color: C.muted }}><p style={{ fontSize: 32, margin: "0 0 8px" }}>📊</p><p style={{ margin: 0 }}>No test scores yet — enter the first ones above.</p></div>}
+      {sorted.map((d, i) => (
+        <div key={d.athlete.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 18px", marginBottom: 8, display: "flex", alignItems: "center", gap: 14 }}>
+          <span style={{ fontSize: 16, fontWeight: 900, color: i < 3 ? C.gold : C.muted, width: 24, textAlign: "center" }}>{i + 1}</span>
+          <Avatar name={d.athlete.name} size={40} />
+          <div style={{ flex: 1 }}><p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 14 }}>{d.athlete.name}</p><p style={{ margin: "2px 0 0", fontSize: 11, color: C.muted }}>{d.athlete.event} · {d.count} test{d.count !== 1 ? "s" : ""}</p></div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>{d.latest[metricFilter]}{metric?.key === "rdl" && <span style={{ fontSize: 11, color: C.muted, marginLeft: 3 }}>lbs</span>}</p>
+            {d.diff !== null && <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 700, color: d.diff >= 0 ? C.teal : C.red }}>{d.diff >= 0 ? "+" : ""}{d.diff} {d.pct !== null && <span style={{ opacity: .7 }}>({d.diff >= 0 ? "+" : ""}{d.pct}%)</span>}</p>}
+            {d.diff === null && <p style={{ margin: "2px 0 0", fontSize: 11, color: C.muted }}>baseline only</p>}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -620,11 +681,10 @@ function LoginScreen({ athletes, onLogin, onCoachLogin }) {
 }
 
 // ─── ATHLETE APP ──────────────────────────────────────────────────────────────
-function AthleteApp({ athlete, workouts, logs, onLog, onLogout }) {
+function AthleteApp({ athlete, workouts, logs, testScores, onLog, onLogout }) {
   const myWorkouts = workouts.filter((w) => w.assignees?.includes(athlete.id)).sort((a, b) => b.date.localeCompare(a.date));
   const myLogs = logs.filter((l) => l.athleteId === athlete.id);
   const [logTarget, setLogTarget] = useState(null);
-
   return (
     <div style={{ minHeight: "100vh", background: C.bg }}>
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "0 20px" }}>
@@ -634,11 +694,12 @@ function AthleteApp({ athlete, workouts, logs, onLog, onLogout }) {
         </div>
       </div>
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "24px 20px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 26 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 20 }}>
           <StatCard label="Workouts" value={myWorkouts.length} />
           <StatCard label="Logged" value={myLogs.length} accent={myLogs.length > 0 ? C.teal : undefined} />
           <StatCard label="Avg RPE" value={myLogs.filter((l) => l.rpe).length ? (myLogs.reduce((s, l) => s + (parseFloat(l.rpe) || 0), 0) / myLogs.filter((l) => l.rpe).length).toFixed(1) : "—"} accent={C.gold} />
         </div>
+        <AthleteProgressCard athlete={athlete} testScores={testScores} />
         <h3 style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", letterSpacing: ".06em", textTransform: "uppercase" }}>Your workouts</h3>
         {myWorkouts.length === 0 && <p style={{ color: C.muted, textAlign: "center", padding: "40px 0" }}>No workouts assigned yet — check back soon.</p>}
         {myWorkouts.map((wkt) => {
@@ -648,10 +709,7 @@ function AthleteApp({ athlete, workouts, logs, onLog, onLogout }) {
           return (
             <div key={wkt.id} style={{ background: C.surface, border: `1px solid ${log ? C.teal : C.border}`, borderRadius: 14, padding: "16px 18px", marginBottom: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 15 }}>{wkt.title}</p>
-                  <p style={{ margin: "3px 0 0", fontSize: 12, color: C.muted }}>{fmtDate(wkt.date)} · {totalEx} exercises{supersetCount > 0 && <span style={{ color: C.gold, marginLeft: 6 }}>· {supersetCount} superset{supersetCount > 1 ? "s" : ""}</span>}</p>
-                </div>
+                <div><p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 15 }}>{wkt.title}</p><p style={{ margin: "3px 0 0", fontSize: 12, color: C.muted }}>{fmtDate(wkt.date)} · {totalEx} exercises{supersetCount > 0 && <span style={{ color: C.gold, marginLeft: 6 }}>· {supersetCount} superset{supersetCount > 1 ? "s" : ""}</span>}</p></div>
                 <button onClick={() => setLogTarget({ wkt, existingLog: log })} style={{ background: log ? "transparent" : C.teal, color: log ? C.teal : C.bg, border: `1px solid ${C.teal}`, borderRadius: 9, padding: "7px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, marginLeft: 12 }}>{log ? "View log" : "Log session"}</button>
               </div>
               {log && <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, marginTop: 10, display: "flex", gap: 16, flexWrap: "wrap" }}>{log.rpe && <span style={{ fontSize: 12, color: C.gold, fontWeight: 700 }}>RPE {log.rpe}/10</span>}{log.note && <span style={{ fontSize: 12, color: C.mutedUp, fontStyle: "italic" }}>"{log.note.slice(0, 90)}{log.note.length > 90 ? "…" : ""}"</span>}</div>}
@@ -665,22 +723,21 @@ function AthleteApp({ athlete, workouts, logs, onLog, onLogout }) {
 }
 
 // ─── COACH APP ────────────────────────────────────────────────────────────────
-function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onLogout }) {
+function CoachApp({ athletes, workouts, logs, testScores, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onSaveTestScore, onLogout }) {
   const [tab, setTab] = useState("workouts");
   const [showBuilder, setShowBuilder] = useState(false);
   const [editWkt, setEditWkt] = useState(null);
   const [selectedAthlete, setSelectedAthlete] = useState(null);
   const [editAthlete, setEditAthlete] = useState(null);
   const [showAddAthlete, setShowAddAthlete] = useState(false);
-  const [sessionDetail, setSessionDetail] = useState(null); // {log, workout, athlete}
+  const [showTestEntry, setShowTestEntry] = useState(false);
+  const [sessionDetail, setSessionDetail] = useState(null);
   const [newAthlete, setNewAthlete] = useState({ name: "", event: "", pin: "" });
   const [adding, setAdding] = useState(false);
   const [rosterFilter, setRosterFilter] = useState("All");
-
   const poolGroups = [...new Set(athletes.map((a) => a.event).filter(Boolean))];
   const filteredAthletes = rosterFilter === "All" ? athletes : athletes.filter((a) => a.event === rosterFilter);
   const handleAddAthlete = async () => { if (!newAthlete.name || !newAthlete.pin) return; setAdding(true); await onAddAthlete({ id: uid(), ...newAthlete }); setNewAthlete({ name: "", event: "", pin: "" }); setShowAddAthlete(false); setAdding(false); };
-
   const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
 
   return (
@@ -694,7 +751,7 @@ function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, on
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ display: "flex", background: C.bg, borderRadius: 30, padding: 3 }}>
-              {["workouts","roster","logs"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize" }}>{t}</button>)}
+              {["workouts","roster","logs","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize" }}>{t}</button>)}
             </div>
             <button onClick={onLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit" }}>Log out</button>
           </div>
@@ -703,7 +760,6 @@ function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, on
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "26px 20px" }}>
 
-        {/* WORKOUTS */}
         {tab === "workouts" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -728,10 +784,7 @@ function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, on
                     <div style={{ flex: 1 }}>
                       <p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 15 }}>{wkt.title}</p>
                       <p style={{ margin: "3px 0 8px", fontSize: 12, color: C.muted }}>{fmtDate(wkt.date)} · {totalEx} exercises{supersetCount > 0 && <span style={{ color: C.gold, marginLeft: 6 }}>· {supersetCount} superset{supersetCount > 1 ? "s" : ""}</span>} · {wktLogs.length}/{wkt.assignees?.length || 0} logged</p>
-                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                        {names.slice(0, 8).map((n) => <span key={n} style={{ fontSize: 11, background: C.tealGlow, color: C.teal, border: `1px solid ${C.border}`, borderRadius: 20, padding: "2px 9px" }}>{n}</span>)}
-                        {names.length > 8 && <span style={{ fontSize: 11, color: C.muted }}>+{names.length - 8} more</span>}
-                      </div>
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{names.slice(0, 8).map((n) => <span key={n} style={{ fontSize: 11, background: C.tealGlow, color: C.teal, border: `1px solid ${C.border}`, borderRadius: 20, padding: "2px 9px" }}>{n}</span>)}{names.length > 8 && <span style={{ fontSize: 11, color: C.muted }}>+{names.length - 8} more</span>}</div>
                     </div>
                     <div style={{ display: "flex", gap: 8, marginLeft: 12 }}>
                       <Btn variant="ghost" small onClick={() => { setEditWkt(wkt); setShowBuilder(true); }}>Edit</Btn>
@@ -745,7 +798,6 @@ function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, on
           </div>
         )}
 
-        {/* ROSTER */}
         {tab === "roster" && !selectedAthlete && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -762,10 +814,7 @@ function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, on
                 <div key={a.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 18px", marginBottom: 8, display: "flex", alignItems: "center", gap: 14 }}>
                   <div onClick={() => setSelectedAthlete(a)} style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, cursor: "pointer" }}>
                     <Avatar name={a.name} size={44} />
-                    <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 15 }}>{a.name}</p>
-                      <p style={{ margin: "2px 0 0", color: C.muted, fontSize: 12 }}>{a.event || "No group"}</p>
-                    </div>
+                    <div style={{ flex: 1 }}><p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 15 }}>{a.name}</p><p style={{ margin: "2px 0 0", color: C.muted, fontSize: 12 }}>{a.event || "No group"}</p></div>
                     <div style={{ display: "flex", gap: 20, textAlign: "center", marginRight: 8 }}>
                       <div><p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.white }}>{aWkts.length}</p><p style={{ margin: 0, fontSize: 10, color: C.muted }}>workouts</p></div>
                       <div><p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: aLogs.length ? C.teal : C.muted }}>{aLogs.length}</p><p style={{ margin: 0, fontSize: 10, color: C.muted }}>logged</p></div>
@@ -782,17 +831,13 @@ function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, on
                   {[["Full name","name","text","Maya Chen"],["Pool group","event","text","8 Lane"],["PIN","pin","text","1234"]].map(([label,key,type,ph]) => (
                     <div key={key} style={{ marginBottom: 14 }}><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>{label.toUpperCase()}</label><input type={type} value={newAthlete[key]} onChange={(e) => setNewAthlete((n) => ({ ...n, [key]: e.target.value }))} placeholder={ph} style={inp} /></div>
                   ))}
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <Btn variant="ghost" onClick={() => setShowAddAthlete(false)} style={{ flex: 1 }}>Cancel</Btn>
-                    <Btn onClick={handleAddAthlete} disabled={!newAthlete.name || !newAthlete.pin || adding} style={{ flex: 1 }}>{adding ? "Adding…" : "Add athlete"}</Btn>
-                  </div>
+                  <div style={{ display: "flex", gap: 10 }}><Btn variant="ghost" onClick={() => setShowAddAthlete(false)} style={{ flex: 1 }}>Cancel</Btn><Btn onClick={handleAddAthlete} disabled={!newAthlete.name || !newAthlete.pin || adding} style={{ flex: 1 }}>{adding ? "Adding…" : "Add athlete"}</Btn></div>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* ATHLETE DETAIL */}
         {tab === "roster" && selectedAthlete && (() => {
           const aWkts = workouts.filter((w) => w.assignees?.includes(selectedAthlete.id)).sort((a, b) => b.date.localeCompare(a.date));
           const aLogs = logs.filter((l) => l.athleteId === selectedAthlete.id);
@@ -801,10 +846,7 @@ function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, on
               <button onClick={() => setSelectedAthlete(null)} style={{ background: "none", border: "none", color: C.teal, cursor: "pointer", fontSize: 13, marginBottom: 18, padding: 0, fontFamily: "inherit" }}>← Back to roster</button>
               <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
                 <Avatar name={selectedAthlete.name} size={56} />
-                <div style={{ flex: 1 }}>
-                  <h2 style={{ margin: 0, color: C.white, fontSize: 22, fontWeight: 900 }}>{selectedAthlete.name}</h2>
-                  <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>{selectedAthlete.event || "No group"}</p>
-                </div>
+                <div style={{ flex: 1 }}><h2 style={{ margin: 0, color: C.white, fontSize: 22, fontWeight: 900 }}>{selectedAthlete.name}</h2><p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>{selectedAthlete.event || "No group"}</p></div>
                 <Btn variant="ghost" small onClick={() => setEditAthlete(selectedAthlete)}>Edit athlete</Btn>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 24 }}>
@@ -831,34 +873,39 @@ function CoachApp({ athletes, workouts, logs, onSaveWorkout, onDeleteWorkout, on
           );
         })()}
 
-        {/* LOGS */}
         {tab === "logs" && (
           <div>
             <h1 style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 900, color: C.white }}>All session logs</h1>
             {logs.length === 0 && <p style={{ color: C.muted, textAlign: "center", padding: "48px 0" }}>No sessions logged yet.</p>}
             {[...logs].sort((a, b) => b.loggedAt - a.loggedAt).map((log, i) => {
-              const athlete = athletes.find((a) => a.id === log.athleteId);
+              const logAthlete = athletes.find((a) => a.id === log.athleteId);
               const wkt = workouts.find((w) => w.id === log.workoutId);
-              if (!athlete || !wkt) return null;
+              if (!logAthlete || !wkt) return null;
               return (
                 <div key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 18px", marginBottom: 10, display: "flex", gap: 14, alignItems: "center" }}>
-                  <Avatar name={athlete.name} size={42} />
+                  <Avatar name={logAthlete.name} size={42} />
                   <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 14 }}>{athlete.name} <span style={{ color: C.muted, fontWeight: 400 }}>logged</span> {wkt.title}</p>
+                    <p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 14 }}>{logAthlete.name} <span style={{ color: C.muted, fontWeight: 400 }}>logged</span> {wkt.title}</p>
                     <p style={{ margin: "3px 0 0", fontSize: 12, color: C.muted }}>{fmtDate(log.date)}{log.rpe && <span style={{ color: C.gold, fontWeight: 700, marginLeft: 8 }}>RPE {log.rpe}</span>}</p>
                     {log.note && <p style={{ margin: "5px 0 0", fontSize: 13, color: C.mutedUp, fontStyle: "italic" }}>"{log.note}"</p>}
                   </div>
-                  <Btn variant="ghost" small onClick={() => setSessionDetail({ log, workout: wkt, athlete })}>View</Btn>
+                  <Btn variant="ghost" small onClick={() => setSessionDetail({ log, workout: wkt, athlete: logAthlete })}>View</Btn>
                 </div>
               );
             })}
           </div>
         )}
+
+        {tab === "progress" && (
+          <ProgressDashboard athletes={athletes} testScores={testScores} onEnterScores={() => setShowTestEntry(true)} />
+        )}
+
       </div>
 
       {showBuilder && <BuilderModal athletes={athletes} onSave={async (wkt) => { await onSaveWorkout(wkt); setShowBuilder(false); setEditWkt(null); }} onClose={() => { setShowBuilder(false); setEditWkt(null); }} editWkt={editWkt} />}
       {editAthlete && <EditAthleteModal athlete={editAthlete} onSave={async (updated) => { await onUpdateAthlete(updated); setEditAthlete(null); if (selectedAthlete?.id === updated.id) setSelectedAthlete(updated); }} onDelete={async () => { await onDeleteAthlete(editAthlete.id); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onClose={() => setEditAthlete(null)} />}
       {sessionDetail && <SessionDetailModal log={sessionDetail.log} workout={sessionDetail.workout} athlete={sessionDetail.athlete} onClose={() => setSessionDetail(null)} />}
+      {showTestEntry && <TestScoreModal athletes={athletes} onSave={async (score) => { await onSaveTestScore(score); setShowTestEntry(false); }} onClose={() => setShowTestEntry(false)} />}
     </div>
   );
 }
@@ -869,18 +916,21 @@ export default function App() {
   const [athletes, setAthletes] = useState([]);
   const [workouts, setWorkouts] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [testScores, setTestScores] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchAll() {
-      const [{ data: ath }, { data: wkts }, { data: lg }] = await Promise.all([
+      const [{ data: ath }, { data: wkts }, { data: lg }, { data: ts }] = await Promise.all([
         supabase.from("athletes").select("*"),
         supabase.from("workouts").select("*"),
         supabase.from("logs").select("*"),
+        supabase.from("test_scores").select("*"),
       ]);
       setAthletes(ath || []);
       setWorkouts((wkts || []).map((w) => ({ ...w, blocks: typeof w.blocks === "string" ? JSON.parse(w.blocks) : w.blocks, assignees: typeof w.assignees === "string" ? JSON.parse(w.assignees) : w.assignees })));
       setLogs((lg || []).map((l) => ({ ...l, sets: typeof l.sets === "string" ? JSON.parse(l.sets) : l.sets })));
+      setTestScores(ts || []);
       setLoading(false);
     }
     fetchAll();
@@ -907,6 +957,11 @@ export default function App() {
     setLogs((data || []).map((l) => ({ ...l, sets: typeof l.sets === "string" ? JSON.parse(l.sets) : l.sets })));
   }, [logs]);
 
+  const saveTestScore = useCallback(async (score) => {
+    await supabase.from("test_scores").insert(score);
+    setTestScores((ts) => [...ts, score]);
+  }, []);
+
   const addAthlete = useCallback(async (athlete) => {
     await supabase.from("athletes").insert(athlete);
     setAthletes((as) => [...as, athlete]);
@@ -930,6 +985,6 @@ export default function App() {
   );
 
   if (!session) return <LoginScreen athletes={athletes} onLogin={(a) => setSession({ role: "athlete", athlete: a })} onCoachLogin={() => setSession({ role: "coach" })} />;
-  if (session.role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={updateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onLogout={() => setSession(null)} />;
-  return <AthleteApp athlete={session.athlete} workouts={workouts} logs={logs} onLog={saveLog} onLogout={() => setSession(null)} />;
+  if (session.role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={updateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onSaveTestScore={saveTestScore} onLogout={() => setSession(null)} />;
+  return <AthleteApp athlete={session.athlete} workouts={workouts} logs={logs} testScores={testScores} onLog={saveLog} onLogout={() => setSession(null)} />;
 }
