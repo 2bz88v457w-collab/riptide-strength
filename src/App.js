@@ -929,7 +929,7 @@ export default function App() {
       ]);
       setAthletes(ath || []);
       setWorkouts((wkts || []).map((w) => ({ ...w, blocks: typeof w.blocks === "string" ? JSON.parse(w.blocks) : w.blocks, assignees: typeof w.assignees === "string" ? JSON.parse(w.assignees) : w.assignees })));
-      setLogs((lg || []).map((l) => ({ ...l, sets: typeof l.sets === "string" ? JSON.parse(l.sets) : l.sets })));
+      setLogs((lg || []).map((l) => ({ ...l, sets: typeof l.sets === "string" ? JSON.parse(l.sets) : l.sets, blockNotes: typeof l.blockNotes === "string" && l.blockNotes ? JSON.parse(l.blockNotes) : l.blockNotes })));
       setTestScores(ts || []);
       setLoading(false);
     }
@@ -949,12 +949,29 @@ export default function App() {
   }, []);
 
   const saveLog = useCallback(async (log) => {
-    const payload = { ...log, sets: JSON.stringify(log.sets), loggedAt: Date.now() };
+    const payload = {
+      ...log,
+      sets: JSON.stringify(log.sets),
+      blockNotes: log.blockNotes ? JSON.stringify(log.blockNotes) : null,
+      loggedAt: Date.now(),
+    };
     const exists = logs.find((l) => l.athleteId === log.athleteId && l.workoutId === log.workoutId);
-    if (exists) { await supabase.from("logs").update(payload).eq("athleteId", log.athleteId).eq("workoutId", log.workoutId); }
-    else { await supabase.from("logs").insert(payload); }
+    let error;
+    if (exists) {
+      // Use the row's primary key id to avoid quoted column name issues in the WHERE clause
+      const { error: updateError } = await supabase.from("logs").update(payload).eq("id", exists.id);
+      error = updateError;
+    } else {
+      const { error: insertError } = await supabase.from("logs").insert(payload);
+      error = insertError;
+    }
+    if (error) {
+      console.error("Log save error:", error);
+      alert("Session failed to save: " + error.message);
+      return;
+    }
     const { data } = await supabase.from("logs").select("*");
-    setLogs((data || []).map((l) => ({ ...l, sets: typeof l.sets === "string" ? JSON.parse(l.sets) : l.sets })));
+    setLogs((data || []).map((l) => ({ ...l, sets: typeof l.sets === "string" ? JSON.parse(l.sets) : l.sets, blockNotes: typeof l.blockNotes === "string" ? JSON.parse(l.blockNotes) : l.blockNotes })));
   }, [logs]);
 
   const saveTestScore = useCallback(async (score) => {
