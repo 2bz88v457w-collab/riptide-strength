@@ -480,9 +480,9 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
           });
           return (
             <div key={block.id} style={{ marginBottom: 20 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}><div style={{ width: 3, height: 14, borderRadius: 2, background: BLOCK_COLORS[bi] || C.muted }} /><span style={{ fontSize: 11, fontWeight: 800, color: BLOCK_COLORS[bi] || C.muted, textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}><div style={{ width: 3, height: 14, borderRadius: 2, background: BLOCK_COLORS[bi] || C.muted }} /><span style={{ fontSize: 11, fontWeight: 800, color: BLOCK_COLORS[bi] || C.muted, textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span></div>
+              <textarea value={blockNotes[block.id] || ""} onChange={(e) => setBlockNotes((n) => ({ ...n, [block.id]: e.target.value }))} placeholder={`Notes for ${block.name}…`} rows={2} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, padding: "7px 10px", fontSize: 12, width: "100%", boxSizing: "border-box", resize: "none", fontFamily: "inherit", marginBottom: 10, fontStyle: "italic" }} />
               {rendered}
-              <textarea value={blockNotes[block.id] || ""} onChange={(e) => setBlockNotes((n) => ({ ...n, [block.id]: e.target.value }))} placeholder={`Notes for ${block.name}…`} rows={2} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, padding: "7px 10px", fontSize: 12, width: "100%", boxSizing: "border-box", resize: "none", fontFamily: "inherit", marginTop: 6, fontStyle: "italic" }} />
             </div>
           );
         })}
@@ -672,7 +672,7 @@ function ProgressDashboard({ athletes, testScores, onEnterScores }) {
 function LoginScreen({ athletes, onLogin, onCoachLogin }) {
   const [name, setName] = useState(""); const [pin, setPin] = useState(""); const [coachPin, setCoachPin] = useState(""); const [mode, setMode] = useState("athlete"); const [err, setErr] = useState("");
   const handleAthleteLogin = () => { setErr(""); const match = athletes.find((a) => a.name.toLowerCase() === name.trim().toLowerCase() && a.pin === pin); if (match) onLogin(match); else setErr("Name or PIN not found. Check with your coach."); };
-  const handleCoachLogin = () => { setErr(""); if (coachPin === "COACH2025") onCoachLogin(); else setErr("Incorrect coach PIN."); };
+  const handleCoachLogin = () => { setErr(""); if (coachPin === "RS214") onCoachLogin(); else setErr("Incorrect coach PIN."); };
   const fieldStyle = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 9, color: C.white, padding: "11px 14px", width: "100%", boxSizing: "border-box", fontFamily: "inherit" };
   return (
     <div style={{ minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
