@@ -497,26 +497,39 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
 }
 
 // ─── EDIT ATHLETE MODAL ───────────────────────────────────────────────────────
-function EditAthleteModal({ athlete, onSave, onDelete, onClose }) {
+function EditAthleteModal({ athlete, onSave, onArchive, onDelete, onUnarchive, onClose }) {
   const [eName, setEName] = useState(athlete.name);
   const [eEvent, setEEvent] = useState(athlete.event || "");
   const [ePin, setEPin] = useState(athlete.pin);
   const [eTag, setETag] = useState(athlete.champTag || "");
+  const [eSchool, setESchool] = useState(athlete.school || "");
+  const [eGrade, setEGrade] = useState(athlete.grade || "");
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const handleSave = async () => { if (!eName || !ePin) return; setSaving(true); await onSave({ ...athlete, name: eName, event: eEvent, pin: ePin, champTag: eTag }); setSaving(false); };
+  const isArchived = !!athlete.archived;
+  const GRADES = ["6th","7th","8th","9th","10th","11th","12th"];
+  const handleSave = async () => { if (!eName || !ePin) return; setSaving(true); await onSave({ ...athlete, name: eName, event: eEvent, pin: ePin, champTag: eTag, school: eSchool, grade: eGrade }); setSaving(false); };
   const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 400, padding: 26 }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 440, padding: 26, maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h2 style={{ margin: 0, color: C.white, fontSize: 18, fontWeight: 800 }}>Edit athlete</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
         </div>
-        {[["FULL NAME", eName, setEName], ["POOL GROUP", eEvent, setEEvent], ["PIN", ePin, setEPin]].map(([label, val, setter]) => (
-          <div key={label} style={{ marginBottom: 14 }}><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>{label}</label><input value={val} onChange={(e) => setter(e.target.value)} style={inp} /></div>
-        ))}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+          <div style={{ gridColumn: "1/-1" }}><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>FULL NAME</label><input value={eName} onChange={(e) => setEName(e.target.value)} style={inp} /></div>
+          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>POOL GROUP</label><input value={eEvent} onChange={(e) => setEEvent(e.target.value)} style={inp} /></div>
+          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>PIN</label><input value={ePin} onChange={(e) => setEPin(e.target.value)} style={inp} /></div>
+          <div style={{ gridColumn: "1/-1" }}><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>SCHOOL</label><input value={eSchool} onChange={(e) => setESchool(e.target.value)} placeholder="e.g. Farmington High School" style={inp} /></div>
+        </div>
         <div style={{ marginBottom: 14 }}>
+          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 8 }}>GRADE</label>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {GRADES.map((g) => <button key={g} onClick={() => setEGrade(eGrade === g ? "" : g)} style={{ border: `1px solid ${eGrade === g ? C.teal : C.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: eGrade === g ? C.tealGlow : "transparent", color: eGrade === g ? C.teal : C.mutedUp }}>{g}</button>)}
+          </div>
+        </div>
+        <div style={{ marginBottom: 18 }}>
           <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>CHAMPIONSHIP TAG</label>
           <div style={{ display: "flex", gap: 8 }}>
             {[["", "None"], ["Regional", "Regional"], ["State", "State"]].map(([val, label]) => (
@@ -524,10 +537,25 @@ function EditAthleteModal({ athlete, onSave, onDelete, onClose }) {
             ))}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-          {!confirming ? <button onClick={() => setConfirming(true)} style={{ background: "none", border: `1px solid rgba(255,77,77,0.3)`, borderRadius: 10, color: C.red, fontSize: 13, fontWeight: 700, padding: "9px 16px", cursor: "pointer", fontFamily: "inherit" }}>Delete</button>
-            : <button onClick={onDelete} style={{ background: C.red, border: "none", borderRadius: 10, color: "#fff", fontSize: 13, fontWeight: 700, padding: "9px 16px", cursor: "pointer", fontFamily: "inherit" }}>Confirm delete</button>}
-          <div style={{ flex: 1 }} /><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn onClick={handleSave} disabled={!eName || !ePin || saving}>{saving ? "Saving…" : "Save"}</Btn>
+        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {!isArchived ? (
+            !confirming
+              ? <button onClick={() => setConfirming(true)} style={{ background: "none", border: `1px solid rgba(255,183,0,0.3)`, borderRadius: 10, color: C.gold, fontSize: 12, fontWeight: 700, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit" }}>Archive</button>
+              : <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={onArchive} style={{ background: C.gold, border: "none", borderRadius: 10, color: C.bg, fontSize: 12, fontWeight: 700, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit" }}>Confirm archive</button>
+                  <button onClick={() => setConfirming(false)} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 10, color: C.muted, fontSize: 12, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                </div>
+          ) : (
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={onUnarchive} style={{ background: "none", border: `1px solid ${C.teal}`, borderRadius: 10, color: C.teal, fontSize: 12, fontWeight: 700, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit" }}>Unarchive</button>
+              {!confirming
+                ? <button onClick={() => setConfirming(true)} style={{ background: "none", border: `1px solid rgba(255,77,77,0.3)`, borderRadius: 10, color: C.red, fontSize: 12, fontWeight: 700, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit" }}>Delete permanently</button>
+                : <button onClick={onDelete} style={{ background: C.red, border: "none", borderRadius: 10, color: "#fff", fontSize: 12, fontWeight: 700, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit" }}>Confirm delete</button>}
+            </div>
+          )}
+          <div style={{ flex: 1 }} />
+          <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+          <Btn onClick={handleSave} disabled={!eName || !ePin || saving}>{saving ? "Saving…" : "Save"}</Btn>
         </div>
       </div>
     </div>
@@ -668,6 +696,40 @@ function ProgressDashboard({ athletes, testScores, onEnterScores }) {
   );
 }
 
+// ─── SWIMMER PROFILE MODAL ────────────────────────────────────────────────────
+function SwimmerProfileModal({ athlete, onSave, onClose }) {
+  const [school, setSchool] = useState(athlete.school || "");
+  const [grade, setGrade] = useState(athlete.grade || "");
+  const [saving, setSaving] = useState(false);
+  const GRADES = ["6th","7th","8th","9th","10th","11th","12th"];
+  const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
+  const handleSave = async () => { setSaving(true); await onSave({ ...athlete, school, grade }); setSaving(false); onClose(); };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.82)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 380, padding: 26, boxShadow: `0 0 60px ${C.tealGlow}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h2 style={{ margin: 0, color: C.white, fontSize: 18, fontWeight: 800 }}>Your profile</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>SCHOOL</label>
+          <input value={school} onChange={(e) => setSchool(e.target.value)} placeholder="e.g. Farmington High School" style={inp} />
+        </div>
+        <div style={{ marginBottom: 22 }}>
+          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 8 }}>GRADE</label>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {GRADES.map((g) => <button key={g} onClick={() => setGrade(grade === g ? "" : g)} style={{ border: `1px solid ${grade === g ? C.teal : C.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: grade === g ? C.tealGlow : "transparent", color: grade === g ? C.teal : C.mutedUp }}>{g}</button>)}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Btn variant="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Btn>
+          <Btn onClick={handleSave} disabled={saving} style={{ flex: 1 }}>{saving ? "Saving…" : "Save profile"}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── LOGIN SCREEN ─────────────────────────────────────────────────────────────
 function LoginScreen({ athletes, onLogin, onCoachLogin }) {
   const [name, setName] = useState(""); const [pin, setPin] = useState(""); const [coachPin, setCoachPin] = useState(""); const [mode, setMode] = useState("athlete"); const [err, setErr] = useState("");
@@ -700,16 +762,20 @@ function LoginScreen({ athletes, onLogin, onCoachLogin }) {
 }
 
 // ─── ATHLETE APP ──────────────────────────────────────────────────────────────
-function AthleteApp({ athlete, workouts, logs, testScores, onLog, onLogout }) {
+function AthleteApp({ athlete, workouts, logs, testScores, onLog, onUpdateAthlete, onLogout }) {
   const myWorkouts = workouts.filter((w) => w.assignees?.includes(athlete.id)).sort((a, b) => b.date.localeCompare(a.date));
   const myLogs = logs.filter((l) => l.athleteId === athlete.id);
   const [logTarget, setLogTarget] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
   return (
     <div style={{ minHeight: "100vh", background: C.bg }}>
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "0 20px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Avatar name={athlete.name} size={34} /><div><p style={{ margin: 0, fontWeight: 800, fontSize: 15, color: C.white }}>{athlete.name}</p><p style={{ margin: 0, fontSize: 11, color: C.muted }}>{athlete.event}</p></div></div>
-          <button onClick={onLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit" }}>Log out</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Avatar name={athlete.name} size={34} /><div><p style={{ margin: 0, fontWeight: 800, fontSize: 15, color: C.white }}>{athlete.name}</p><p style={{ margin: 0, fontSize: 11, color: C.muted }}>{athlete.grade ? `${athlete.grade} · ` : ""}{athlete.school || athlete.event}</p></div></div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setShowProfile(true)} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit" }}>Profile</button>
+            <button onClick={onLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit" }}>Log out</button>
+          </div>
         </div>
       </div>
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "24px 20px" }}>
@@ -737,6 +803,7 @@ function AthleteApp({ athlete, workouts, logs, testScores, onLog, onLogout }) {
         })}
       </div>
       {logTarget && <LogModal workout={logTarget.wkt} athleteId={athlete.id} existingLog={logTarget.existingLog} allLogs={logs} allWorkouts={workouts} onSave={async (d) => { await onLog(d); setLogTarget(null); }} onClose={() => setLogTarget(null)} />}
+      {showProfile && <SwimmerProfileModal athlete={athlete} onSave={onUpdateAthlete} onClose={() => setShowProfile(false)} />}
     </div>
   );
 }
@@ -754,11 +821,30 @@ function CoachApp({ athletes, workouts, logs, testScores, onSaveWorkout, onDelet
   const [newAthlete, setNewAthlete] = useState({ name: "", event: "", pin: "" });
   const [adding, setAdding] = useState(false);
   const [rosterFilter, setRosterFilter] = useState("All");
+  const [rosterSort, setRosterSort] = useState("alpha");
+  const [rosterSearch, setRosterSearch] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const poolGroups = [...new Set(athletes.map((a) => a.event).filter(Boolean))];
-  const champTags = ["Regional", "State"].filter((tag) => athletes.some((a) => a.champTag === tag));
-  const filteredAthletes = rosterFilter === "All" ? athletes
-    : rosterFilter === "Regional" || rosterFilter === "State" ? athletes.filter((a) => a.champTag === rosterFilter)
-    : athletes.filter((a) => a.event === rosterFilter);
+  const schools = [...new Set(athletes.filter((a) => !a.archived).map((a) => a.school).filter(Boolean))].sort();
+  const champTags = ["Regional", "State"].filter((tag) => athletes.some((a) => a.champTag === tag && !a.archived));
+
+  const activeAthletes = athletes.filter((a) => !a.archived);
+  const archivedAthletes = athletes.filter((a) => a.archived);
+
+  const applyFilter = (list) => {
+    let result = list;
+    if (rosterFilter !== "All") {
+      if (rosterFilter === "Regional" || rosterFilter === "State") result = result.filter((a) => a.champTag === rosterFilter);
+      else if (schools.includes(rosterFilter)) result = result.filter((a) => a.school === rosterFilter);
+      else result = result.filter((a) => a.event === rosterFilter);
+    }
+    if (rosterSearch) result = result.filter((a) => a.name.toLowerCase().includes(rosterSearch.toLowerCase()) || a.school?.toLowerCase().includes(rosterSearch.toLowerCase()));
+    if (rosterSort === "alpha") result = [...result].sort((a, b) => a.name.localeCompare(b.name));
+    else if (rosterSort === "group") result = [...result].sort((a, b) => (a.event || "").localeCompare(b.event || "") || a.name.localeCompare(b.name));
+    return result;
+  };
+
+  const filteredAthletes = applyFilter(activeAthletes);
   const handleAddAthlete = async () => { if (!newAthlete.name || !newAthlete.pin) return; setAdding(true); await onAddAthlete({ id: uid(), ...newAthlete }); setNewAthlete({ name: "", event: "", pin: "" }); setShowAddAthlete(false); setAdding(false); };
   const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
 
@@ -822,38 +908,63 @@ function CoachApp({ athletes, workouts, logs, testScores, onSaveWorkout, onDelet
 
         {tab === "roster" && !selectedAthlete && (
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Roster</h1>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div><h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Roster</h1><p style={{ margin: "3px 0 0", color: C.muted, fontSize: 13 }}>{activeAthletes.length} active{archivedAthletes.length > 0 ? ` · ${archivedAthletes.length} archived` : ""}</p></div>
               <Btn small onClick={() => setShowAddAthlete(true)}>+ Add athlete</Btn>
             </div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
-              {["All", ...poolGroups].map((f) => <button key={f} onClick={() => setRosterFilter(f)} style={{ border: `1px solid ${rosterFilter === f ? C.teal : C.border}`, borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === f ? C.tealGlow : "transparent", color: rosterFilter === f ? C.teal : C.mutedUp }}>{f} <span style={{ opacity: .6 }}>({f === "All" ? athletes.length : athletes.filter((a) => a.event === f).length})</span></button>)}
-              {champTags.length > 0 && <div style={{ width: 1, background: C.border, margin: "0 4px" }} />}
-              {champTags.map((tag) => <button key={tag} onClick={() => setRosterFilter(tag)} style={{ border: `1px solid ${rosterFilter === tag ? C.gold : C.border}`, borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === tag ? `${C.gold}22` : "transparent", color: rosterFilter === tag ? C.gold : C.mutedUp }}>🏆 {tag} <span style={{ opacity: .6 }}>({athletes.filter((a) => a.champTag === tag).length})</span></button>)}
+            <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
+              <input value={rosterSearch} onChange={(e) => setRosterSearch(e.target.value)} placeholder="Search name or school…" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "7px 12px", fontSize: 13, fontFamily: "inherit", flex: 1 }} />
+              <div style={{ display: "flex", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+                {[["alpha","A–Z"],["group","Group"]].map(([val, label]) => (
+                  <button key={val} onClick={() => setRosterSort(val)} style={{ border: "none", padding: "7px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: rosterSort === val ? C.teal : "transparent", color: rosterSort === val ? C.bg : C.muted }}>{label}</button>
+                ))}
+              </div>
             </div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 18 }}>
+              <button onClick={() => setRosterFilter("All")} style={{ border: `1px solid ${rosterFilter === "All" ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === "All" ? C.tealGlow : "transparent", color: rosterFilter === "All" ? C.teal : C.mutedUp }}>All ({activeAthletes.length})</button>
+              {poolGroups.map((g) => <button key={g} onClick={() => setRosterFilter(g)} style={{ border: `1px solid ${rosterFilter === g ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === g ? C.tealGlow : "transparent", color: rosterFilter === g ? C.teal : C.mutedUp }}>{g} ({activeAthletes.filter((a) => a.event === g).length})</button>)}
+              {schools.length > 0 && <div style={{ width: 1, background: C.border, margin: "0 3px" }} />}
+              {schools.map((s) => <button key={s} onClick={() => setRosterFilter(s)} style={{ border: `1px solid ${rosterFilter === s ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === s ? C.tealGlow : "transparent", color: rosterFilter === s ? C.teal : C.mutedUp }}>{s.replace(" High School","").replace(" Middle School","")} ({activeAthletes.filter((a) => a.school === s).length})</button>)}
+              {champTags.length > 0 && <div style={{ width: 1, background: C.border, margin: "0 3px" }} />}
+              {champTags.map((tag) => <button key={tag} onClick={() => setRosterFilter(tag)} style={{ border: `1px solid ${rosterFilter === tag ? C.gold : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === tag ? `${C.gold}22` : "transparent", color: rosterFilter === tag ? C.gold : C.mutedUp }}>🏆 {tag} ({activeAthletes.filter((a) => a.champTag === tag).length})</button>)}
+            </div>
+            {filteredAthletes.length === 0 && <p style={{ color: C.muted, textAlign: "center", padding: "32px 0" }}>No athletes match this filter.</p>}
             {filteredAthletes.map((a) => {
               const aWkts = workouts.filter((w) => w.assignees?.includes(a.id));
               const aLogs = logs.filter((l) => l.athleteId === a.id);
               return (
-                <div key={a.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 18px", marginBottom: 8, display: "flex", alignItems: "center", gap: 14 }}>
-                  <div onClick={() => setSelectedAthlete(a)} style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, cursor: "pointer" }}>
-                    <Avatar name={a.name} size={44} />
+                <div key={a.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+                  <div onClick={() => setSelectedAthlete(a)} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, cursor: "pointer" }}>
+                    <Avatar name={a.name} size={42} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 15 }}>{a.name}</p>
-                        {a.champTag && <span style={{ fontSize: 10, fontWeight: 700, color: C.gold, background: `${C.gold}1A`, border: `1px solid ${C.gold}44`, borderRadius: 10, padding: "1px 7px" }}>🏆 {a.champTag}</span>}
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                        <p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 14 }}>{a.name}</p>
+                        {a.champTag && <span style={{ fontSize: 10, fontWeight: 700, color: C.gold, background: `${C.gold}1A`, border: `1px solid ${C.gold}44`, borderRadius: 10, padding: "1px 6px" }}>🏆 {a.champTag}</span>}
+                        {a.grade && <span style={{ fontSize: 10, color: C.mutedUp, background: C.surfaceUp, borderRadius: 10, padding: "1px 6px" }}>{a.grade}</span>}
                       </div>
-                      <p style={{ margin: "2px 0 0", color: C.muted, fontSize: 12 }}>{a.event || "No group"}</p>
+                      <p style={{ margin: "2px 0 0", color: C.muted, fontSize: 11 }}>{a.event || "No group"}{a.school ? ` · ${a.school}` : ""}</p>
                     </div>
-                    <div style={{ display: "flex", gap: 20, textAlign: "center", marginRight: 8 }}>
-                      <div><p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.white }}>{aWkts.length}</p><p style={{ margin: 0, fontSize: 10, color: C.muted }}>workouts</p></div>
-                      <div><p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: aLogs.length ? C.teal : C.muted }}>{aLogs.length}</p><p style={{ margin: 0, fontSize: 10, color: C.muted }}>logged</p></div>
+                    <div style={{ display: "flex", gap: 16, textAlign: "center", marginRight: 6 }}>
+                      <div><p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.white }}>{aWkts.length}</p><p style={{ margin: 0, fontSize: 10, color: C.muted }}>wkts</p></div>
+                      <div><p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: aLogs.length ? C.teal : C.muted }}>{aLogs.length}</p><p style={{ margin: 0, fontSize: 10, color: C.muted }}>logged</p></div>
                     </div>
                   </div>
-                  <button onClick={() => setEditAthlete(a)} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>Edit</button>
+                  <button onClick={() => setEditAthlete(a)} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, fontSize: 12, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>Edit</button>
                 </div>
               );
             })}
+            {archivedAthletes.length > 0 && (
+              <div style={{ marginTop: 24 }}>
+                <button onClick={() => setShowArchived((v) => !v)} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0, marginBottom: 10 }}>{showArchived ? "▾" : "▸"} Archived ({archivedAthletes.length})</button>
+                {showArchived && archivedAthletes.map((a) => (
+                  <div key={a.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, opacity: 0.55 }}>
+                    <Avatar name={a.name} size={38} />
+                    <div style={{ flex: 1 }}><p style={{ margin: 0, fontWeight: 600, color: C.white, fontSize: 14 }}>{a.name}</p><p style={{ margin: "2px 0 0", color: C.muted, fontSize: 11 }}>{a.event}{a.school ? ` · ${a.school}` : ""}</p></div>
+                    <button onClick={() => setEditAthlete(a)} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, fontSize: 12, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
+                  </div>
+                ))}
+              </div>
+            )}
             {showAddAthlete && (
               <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
                 <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 400, padding: 26 }}>
@@ -933,7 +1044,7 @@ function CoachApp({ athletes, workouts, logs, testScores, onSaveWorkout, onDelet
       </div>
 
       {showBuilder && <BuilderModal athletes={athletes} onSave={async (wkt) => { await onSaveWorkout(wkt); setShowBuilder(false); setEditWkt(null); }} onClose={() => { setShowBuilder(false); setEditWkt(null); }} editWkt={editWkt} />}
-      {editAthlete && <EditAthleteModal athlete={editAthlete} onSave={async (updated) => { await onUpdateAthlete(updated); setEditAthlete(null); if (selectedAthlete?.id === updated.id) setSelectedAthlete(updated); }} onDelete={async () => { await onDeleteAthlete(editAthlete.id); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onClose={() => setEditAthlete(null)} />}
+      {editAthlete && <EditAthleteModal athlete={editAthlete} onSave={async (updated) => { await onUpdateAthlete(updated); setEditAthlete(null); if (selectedAthlete?.id === updated.id) setSelectedAthlete(updated); }} onArchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: true }); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onUnarchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: false }); setEditAthlete(null); }} onDelete={async () => { await onDeleteAthlete(editAthlete.id); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onClose={() => setEditAthlete(null)} />}
       {sessionDetail && <SessionDetailModal log={sessionDetail.log} workout={sessionDetail.workout} athlete={sessionDetail.athlete} onClose={() => setSessionDetail(null)} />}
       {showTestEntry && <TestScoreModal athletes={athletes} onSave={async (score) => { await onSaveTestScore(score); setShowTestEntry(false); }} onClose={() => setShowTestEntry(false)} />}
     </div>
@@ -1033,5 +1144,5 @@ export default function App() {
 
   if (!session) return <LoginScreen athletes={athletes} onLogin={(a) => setSession({ role: "athlete", athlete: a })} onCoachLogin={() => setSession({ role: "coach" })} />;
   if (session.role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={updateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onSaveTestScore={saveTestScore} onLogout={() => setSession(null)} />;
-  return <AthleteApp athlete={session.athlete} workouts={workouts} logs={logs} testScores={testScores} onLog={saveLog} onLogout={() => setSession(null)} />;
+  return <AthleteApp athlete={session.athlete} workouts={workouts} logs={logs} testScores={testScores} onLog={saveLog} onUpdateAthlete={updateAthlete} onLogout={() => setSession(null)} />;
 }
