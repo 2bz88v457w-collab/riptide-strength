@@ -84,6 +84,56 @@ function getLastSets(exerciseName, athleteId, allLogs, allWorkouts, currentWorko
 function initBlocks() { return BLOCKS.map((name) => ({ id: uid(), name, exercises: [] })); }
 function emptyEx() { return { id: uid(), name: "", sets: "3", reps: "8", load: "", note: "", pairId: null }; }
 
+// ─── PR DETECTION HELPERS ─────────────────────────────────────────────────────
+// Parse a numeric load out of whatever the athlete typed ("95", "95 lbs", "95lb").
+// Returns null for blanks and non-numeric loads like "BW".
+function parseLoadNum(v) {
+  if (!v) return null;
+  const n = parseFloat(String(v).replace(/[^0-9.]/g, ""));
+  return isNaN(n) ? null : n;
+}
+
+// Best numeric load an athlete has ever logged for an exercise name (excluding current workout).
+function getBestLoad(exerciseName, athleteId, allLogs, allWorkouts, currentWorkoutId) {
+  if (!exerciseName) return null;
+  const name = exerciseName.toLowerCase().trim();
+  let best = null; let bestDate = null;
+  for (const log of allLogs) {
+    if (log.athleteId !== athleteId || log.workoutId === currentWorkoutId) continue;
+    const wkt = allWorkouts.find((w) => w.id === log.workoutId);
+    if (!wkt) continue;
+    for (const b of wkt.blocks || []) {
+      for (const e of b.exercises) {
+        if (e.name.toLowerCase().trim() !== name) continue;
+        for (const s of log.sets?.[e.id] || []) {
+          const n = parseLoadNum(s.load);
+          if (n !== null && (best === null || n > best)) { best = n; bestDate = log.date; }
+        }
+      }
+    }
+  }
+  return best !== null ? { best, date: bestDate } : null;
+}
+
+// All-time PRs per movement for one athlete, from their full log history.
+function computePRs(athleteId, allLogs, allWorkouts) {
+  const prs = {};
+  allLogs.filter((l) => l.athleteId === athleteId).forEach((log) => {
+    const wkt = allWorkouts.find((w) => w.id === log.workoutId);
+    if (!wkt) return;
+    wkt.blocks?.forEach((b) => b.exercises.forEach((e) => {
+      (log.sets?.[e.id] || []).forEach((s) => {
+        const n = parseLoadNum(s.load);
+        if (n === null) return;
+        const key = e.name.trim();
+        if (!key) return;
+        if (!prs[key] || n > prs[key].best) prs[key] = { best: n, date: log.date };
+      });
+    }));
+  });
+  return prs;
+}
+
 // ─── AI GENERATE ──────────────────────────────────────────────────────────────
 async function generateWorkout(athlete, focus) {
   const prompt = `You are an expert strength coach for competitive swimmers.
@@ -451,18 +501,24 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
 
   const renderExLog = (ex, isSupersetMember = false) => {
     const history = getLastSets(ex.name, athleteId, allLogs, allWorkouts, workout.id);
+    const isBWEx = ex.load?.trim().toUpperCase() === "BW";
+    const bestInfo = !isBWEx ? getBestLoad(ex.name, athleteId, allLogs, allWorkouts, workout.id) : null;
     return (
       <div key={ex.id} style={{ background: isSupersetMember ? "transparent" : C.surfaceUp, borderRadius: isSupersetMember ? 8 : 10, padding: "10px 12px", marginBottom: isSupersetMember ? 0 : 8, border: isSupersetMember ? `1px solid ${C.border}` : "none" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ color: C.white, fontWeight: 700, fontSize: 14 }}>{ex.name}</span><span style={{ color: C.muted, fontSize: 12 }}>{ex.sets}×{ex.reps}{ex.load ? ` @ ${ex.load}` : ""}</span></div>
-        {history && <div style={{ display: "flex", gap: 6, marginBottom: 7, flexWrap: "wrap" }}><span style={{ fontSize: 11, color: C.muted }}>Last ({fmtDate(history.date)}):</span>{history.sets.map((s, i) => <span key={i} style={{ fontSize: 11, color: C.mutedUp, background: C.bg, borderRadius: 4, padding: "1px 7px" }}>S{i + 1}: {s.reps || "—"} @ {s.load || "—"}</span>)}</div>}
+        {(history || bestInfo) && <div style={{ display: "flex", gap: 6, marginBottom: 7, flexWrap: "wrap", alignItems: "center" }}>
+          {history && <><span style={{ fontSize: 11, color: C.muted }}>Last ({fmtDate(history.date)}):</span>{history.sets.map((s, i) => <span key={i} style={{ fontSize: 11, color: C.mutedUp, background: C.bg, borderRadius: 4, padding: "1px 7px" }}>S{i + 1}: {s.reps || "—"} @ {s.load || "—"}</span>)}</>}
+          {bestInfo && <span style={{ fontSize: 11, fontWeight: 700, color: C.gold, background: `${C.gold}14`, border: `1px solid ${C.gold}33`, borderRadius: 4, padding: "1px 7px" }}>Best: {bestInfo.best}</span>}
+        </div>}
         {ex.note && <p style={{ margin: "0 0 8px", fontSize: 12, color: C.teal, fontStyle: "italic" }}>"{ex.note}"</p>}
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          {(sets[ex.id] || []).map((row, idx) => { const exIsBW = ex.load?.trim().toUpperCase() === "BW"; return (
-            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 4, background: row.done ? C.tealGlow : "rgba(255,255,255,.03)", border: `1px solid ${row.done ? C.teal : C.border}`, borderRadius: 7, padding: "4px 7px" }}>
+          {(sets[ex.id] || []).map((row, idx) => { const exIsBW = isBWEx; const loadNum = parseLoadNum(row.load); const isPR = !exIsBW && loadNum !== null && bestInfo && loadNum > bestInfo.best; return (
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 4, background: row.done ? C.tealGlow : "rgba(255,255,255,.03)", border: `1px solid ${isPR ? C.gold : row.done ? C.teal : C.border}`, borderRadius: 7, padding: "4px 7px" }}>
               <span style={{ fontSize: 10, color: C.muted, width: 14 }}>S{idx + 1}</span>
               <input value={row.reps} inputMode="numeric" onChange={(e) => updSet(ex.id, idx, "reps", e.target.value, exIsBW)} placeholder={ex.reps} style={{ ...inpSm, width: 40 }} />
               <span style={{ color: C.muted, fontSize: 10 }}>@</span>
               <input value={row.load} inputMode={exIsBW ? "text" : "numeric"} disabled={exIsBW} onChange={(e) => updSet(ex.id, idx, "load", e.target.value, exIsBW, ex.reps)} placeholder={ex.load || "—"} style={{ ...inpSm, width: 50, opacity: exIsBW ? 0.6 : 1 }} />
+              {isPR && <span title="New PR!" style={{ fontSize: 13 }}>🔥</span>}
               <button onClick={() => toggleDone(ex.id, idx, ex.reps)} style={{ background: "none", border: "none", cursor: "pointer", color: row.done ? C.teal : C.muted, fontSize: 17, padding: 0, lineHeight: 1 }}>{row.done ? "✓" : "○"}</button>
             </div>
           ); })}
@@ -676,6 +732,45 @@ function AthleteProgressCard({ athlete, testScores }) {
   );
 }
 
+// ─── ATHLETE PR CARD ──────────────────────────────────────────────────────────
+function AthletePRCard({ athlete, logs, workouts }) {
+  const [expanded, setExpanded] = useState(false);
+  const prs = computePRs(athlete.id, logs, workouts);
+  const entries = Object.entries(prs).sort((a, b) => b[1].date.localeCompare(a[1].date));
+  if (entries.length === 0) return null;
+  const daysAgo = (d) => Math.floor((Date.now() - new Date(d + "T12:00:00")) / 86400000);
+  const recent = entries.filter(([, v]) => daysAgo(v.date) <= 14);
+  const shown = expanded ? entries : entries.slice(0, 4);
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: "16px 20px", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.gold, textTransform: "uppercase", letterSpacing: ".06em" }}>🔥 Your PRs</p>
+        <span style={{ fontSize: 11, color: C.muted }}>{entries.length} movement{entries.length !== 1 ? "s" : ""}{recent.length > 0 ? ` · ${recent.length} new` : ""}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        {shown.map(([exName, v]) => {
+          const isNew = daysAgo(v.date) <= 14;
+          return (
+            <div key={exName} style={{ background: C.bg, borderRadius: 10, padding: "10px 12px", border: `1px solid ${isNew ? `${C.gold}55` : C.border}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: C.white, lineHeight: 1.3 }}>{exName}</p>
+                {isNew && <span style={{ fontSize: 9, fontWeight: 800, color: C.gold, background: `${C.gold}1A`, borderRadius: 8, padding: "1px 6px", flexShrink: 0 }}>NEW</span>}
+              </div>
+              <p style={{ margin: "4px 0 0", fontSize: 18, fontWeight: 900, color: isNew ? C.gold : C.white }}>{v.best}<span style={{ fontSize: 10, color: C.muted, fontWeight: 400, marginLeft: 3 }}>lbs</span></p>
+              <p style={{ margin: "1px 0 0", fontSize: 10, color: C.muted }}>{fmtDate(v.date)}</p>
+            </div>
+          );
+        })}
+      </div>
+      {entries.length > 4 && (
+        <button onClick={() => setExpanded((v) => !v)} style={{ background: "none", border: "none", color: C.teal, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", padding: "10px 0 0", width: "100%", textAlign: "center" }}>
+          {expanded ? "Show less" : `Show all ${entries.length}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── COACH PROGRESS DASHBOARD ─────────────────────────────────────────────────
 function ProgressDashboard({ athletes, testScores, onEnterScores }) {
   const [groupFilter, setGroupFilter] = useState("All");
@@ -814,6 +909,7 @@ function AthleteApp({ athlete, workouts, logs, testScores, onLog, onUpdateAthlet
           <StatCard label="Avg RPE" value={myLogs.filter((l) => l.rpe).length ? (myLogs.reduce((s, l) => s + (parseFloat(l.rpe) || 0), 0) / myLogs.filter((l) => l.rpe).length).toFixed(1) : "—"} accent={C.gold} />
         </div>
         <AthleteProgressCard athlete={athlete} testScores={testScores} />
+        <AthletePRCard athlete={athlete} logs={logs} workouts={workouts} />
         <h3 style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", letterSpacing: ".06em", textTransform: "uppercase" }}>Your workouts</h3>
         {myWorkouts.length === 0 && <p style={{ color: C.muted, textAlign: "center", padding: "40px 0" }}>No workouts assigned yet — check back soon.</p>}
         {myWorkouts.map((wkt) => {
