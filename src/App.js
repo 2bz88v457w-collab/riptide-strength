@@ -427,14 +427,18 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
   const [blockNotes, setBlockNotes] = useState(() => { const init = {}; workout.blocks.forEach((b) => { init[b.id] = existingLog?.blockNotes?.[b.id] || ""; }); return init; });
   const [rpe, setRpe] = useState(existingLog?.rpe || "");
   const [saving, setSaving] = useState(false);
-  const updSet = (exId, idx, k, v, isBW) => setSets((s) => ({
+  const updSet = (exId, idx, k, v, isBW, prescribedReps) => setSets((s) => ({
     ...s,
     [exId]: s[exId].map((r, i) => {
       if (i !== idx) return r;
       const updated = { ...r, [k]: v };
       // Auto-mark complete: weighted exercises complete when a load is entered;
       // bodyweight exercises complete when reps are entered (load is pre-filled/locked).
-      if (!isBW && k === "load") updated.done = v.trim() !== "";
+      if (!isBW && k === "load") {
+        updated.done = v.trim() !== "";
+        // If they entered weight but never touched reps, fall back to the prescribed rep count
+        if (v.trim() !== "" && !updated.reps.trim()) updated.reps = prescribedReps;
+      }
       if (isBW && k === "reps") updated.done = v.trim() !== "";
       return updated;
     }),
@@ -458,7 +462,7 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
               <span style={{ fontSize: 10, color: C.muted, width: 14 }}>S{idx + 1}</span>
               <input value={row.reps} inputMode="numeric" onChange={(e) => updSet(ex.id, idx, "reps", e.target.value, exIsBW)} placeholder={ex.reps} style={{ ...inpSm, width: 40 }} />
               <span style={{ color: C.muted, fontSize: 10 }}>@</span>
-              <input value={row.load} inputMode={exIsBW ? "text" : "numeric"} disabled={exIsBW} onChange={(e) => updSet(ex.id, idx, "load", e.target.value, exIsBW)} placeholder={ex.load || "—"} style={{ ...inpSm, width: 50, opacity: exIsBW ? 0.6 : 1 }} />
+              <input value={row.load} inputMode={exIsBW ? "text" : "numeric"} disabled={exIsBW} onChange={(e) => updSet(ex.id, idx, "load", e.target.value, exIsBW, ex.reps)} placeholder={ex.load || "—"} style={{ ...inpSm, width: 50, opacity: exIsBW ? 0.6 : 1 }} />
               <button onClick={() => toggleDone(ex.id, idx, ex.reps)} style={{ background: "none", border: "none", cursor: "pointer", color: row.done ? C.teal : C.muted, fontSize: 17, padding: 0, lineHeight: 1 }}>{row.done ? "✓" : "○"}</button>
             </div>
           ); })}
