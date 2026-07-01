@@ -427,7 +427,18 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
   const [blockNotes, setBlockNotes] = useState(() => { const init = {}; workout.blocks.forEach((b) => { init[b.id] = existingLog?.blockNotes?.[b.id] || ""; }); return init; });
   const [rpe, setRpe] = useState(existingLog?.rpe || "");
   const [saving, setSaving] = useState(false);
-  const updSet = (exId, idx, k, v) => setSets((s) => ({ ...s, [exId]: s[exId].map((r, i) => i === idx ? { ...r, [k]: v } : r) }));
+  const updSet = (exId, idx, k, v, isBW) => setSets((s) => ({
+    ...s,
+    [exId]: s[exId].map((r, i) => {
+      if (i !== idx) return r;
+      const updated = { ...r, [k]: v };
+      // Auto-mark complete: weighted exercises complete when a load is entered;
+      // bodyweight exercises complete when reps are entered (load is pre-filled/locked).
+      if (!isBW && k === "load") updated.done = v.trim() !== "";
+      if (isBW && k === "reps") updated.done = v.trim() !== "";
+      return updated;
+    }),
+  }));
   const toggleDone = (exId, idx, prescribedReps) => {
     setSets((s) => { const current = s[exId][idx]; const nowDone = !current.done; const reps = current.reps || (nowDone ? prescribedReps : ""); return { ...s, [exId]: s[exId].map((r, i) => i === idx ? { ...r, done: nowDone, reps } : r) }; });
   };
@@ -445,9 +456,9 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
           {(sets[ex.id] || []).map((row, idx) => { const exIsBW = ex.load?.trim().toUpperCase() === "BW"; return (
             <div key={idx} style={{ display: "flex", alignItems: "center", gap: 4, background: row.done ? C.tealGlow : "rgba(255,255,255,.03)", border: `1px solid ${row.done ? C.teal : C.border}`, borderRadius: 7, padding: "4px 7px" }}>
               <span style={{ fontSize: 10, color: C.muted, width: 14 }}>S{idx + 1}</span>
-              <input value={row.reps} inputMode="numeric" onChange={(e) => updSet(ex.id, idx, "reps", e.target.value)} placeholder={ex.reps} style={{ ...inpSm, width: 40 }} />
+              <input value={row.reps} inputMode="numeric" onChange={(e) => updSet(ex.id, idx, "reps", e.target.value, exIsBW)} placeholder={ex.reps} style={{ ...inpSm, width: 40 }} />
               <span style={{ color: C.muted, fontSize: 10 }}>@</span>
-              <input value={row.load} inputMode={exIsBW ? "text" : "numeric"} disabled={exIsBW} onChange={(e) => updSet(ex.id, idx, "load", e.target.value)} placeholder={ex.load || "—"} style={{ ...inpSm, width: 50, opacity: exIsBW ? 0.6 : 1 }} />
+              <input value={row.load} inputMode={exIsBW ? "text" : "numeric"} disabled={exIsBW} onChange={(e) => updSet(ex.id, idx, "load", e.target.value, exIsBW)} placeholder={ex.load || "—"} style={{ ...inpSm, width: 50, opacity: exIsBW ? 0.6 : 1 }} />
               <button onClick={() => toggleDone(ex.id, idx, ex.reps)} style={{ background: "none", border: "none", cursor: "pointer", color: row.done ? C.teal : C.muted, fontSize: 17, padding: 0, lineHeight: 1 }}>{row.done ? "✓" : "○"}</button>
             </div>
           ); })}
@@ -484,11 +495,19 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
             seen.add(ex.id);
             rendered.push(renderExLog(ex, false));
           });
+          const blockComplete = block.exercises.length > 0 && block.exercises.every((ex) => {
+            const exSets = sets[ex.id] || [];
+            return exSets.length > 0 && exSets.every((s) => s.done);
+          });
           return (
             <div key={block.id} style={{ marginBottom: 20 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}><div style={{ width: 3, height: 14, borderRadius: 2, background: BLOCK_COLORS[bi] || C.muted }} /><span style={{ fontSize: 11, fontWeight: 800, color: BLOCK_COLORS[bi] || C.muted, textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span></div>
-              <textarea value={blockNotes[block.id] || ""} onChange={(e) => setBlockNotes((n) => ({ ...n, [block.id]: e.target.value }))} placeholder={`Notes for ${block.name}…`} rows={2} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, padding: "7px 10px", fontSize: 12, width: "100%", boxSizing: "border-box", resize: "none", fontFamily: "inherit", marginBottom: 10, fontStyle: "italic" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <div style={{ width: 3, height: 14, borderRadius: 2, background: BLOCK_COLORS[bi] || C.muted }} />
+                <span style={{ fontSize: 11, fontWeight: 800, color: BLOCK_COLORS[bi] || C.muted, textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span>
+                {blockComplete && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 800, color: C.teal, background: C.tealGlow, border: `1px solid ${C.teal}55`, borderRadius: 20, padding: "1px 8px" }}>✓ Complete</span>}
+              </div>
               {rendered}
+              <textarea value={blockNotes[block.id] || ""} onChange={(e) => setBlockNotes((n) => ({ ...n, [block.id]: e.target.value }))} placeholder={`Notes for ${block.name}…`} rows={2} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, padding: "7px 10px", fontSize: 12, width: "100%", boxSizing: "border-box", resize: "none", fontFamily: "inherit", marginTop: 8, fontStyle: "italic" }} />
             </div>
           );
         })}
