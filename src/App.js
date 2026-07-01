@@ -138,14 +138,17 @@ function ExRow({ ex, label, blockExercises, onChange, onRemove, onPair, onUnpair
   const inp = (w) => ({ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 7, color: C.white, padding: "6px 8px", fontSize: 13, width: w, fontFamily: "inherit", boxSizing: "border-box" });
   const isPaired = !!ex.pairId;
   const canPair = blockExercises.filter((e) => e.id !== ex.id && !e.pairId).length > 0;
+  const isBW = ex.load?.trim().toUpperCase() === "BW";
+  const toggleBW = () => onChange({ ...ex, load: isBW ? "" : "BW" });
   return (
     <div style={{ marginBottom: 6 }}>
       {label && <div style={{ display: "inline-flex", alignItems: "center", gap: 5, marginBottom: 4 }}><div style={{ width: 20, height: 20, borderRadius: 5, background: C.gold, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 10, fontWeight: 900, color: C.bg }}>{label}</span></div><span style={{ fontSize: 10, color: C.gold, fontWeight: 700 }}>SUPERSET</span></div>}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 52px 60px 80px 1fr 70px 70px 24px", gap: 5, alignItems: "center" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 52px 60px 46px 34px 1fr 70px 70px 24px", gap: 5, alignItems: "center" }}>
         <input list="exbank" value={ex.name} onChange={f("name")} placeholder="Exercise" style={inp("100%")} />
         <input value={ex.sets} onChange={f("sets")} placeholder="Sets" style={inp("100%")} />
         <input value={ex.reps} onChange={f("reps")} placeholder="Reps" style={inp("100%")} />
-        <input value={ex.load} onChange={f("load")} placeholder="Load" style={inp("100%")} />
+        <input value={ex.load} onChange={f("load")} placeholder="Load" disabled={isBW} style={{ ...inp("100%"), opacity: isBW ? 0.5 : 1 }} />
+        <button onClick={toggleBW} title="Bodyweight only" style={{ background: isBW ? C.teal : "none", border: `1px solid ${isBW ? C.teal : C.border}`, borderRadius: 6, color: isBW ? C.bg : C.mutedUp, fontSize: 10, fontWeight: 800, padding: "6px 2px", cursor: "pointer", fontFamily: "inherit" }}>BW</button>
         <input value={ex.note} onChange={f("note")} placeholder="Coaching cue" style={inp("100%")} />
         <button onClick={onSwap} style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 6, color: C.mutedUp, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit" }}>⇄ Swap</button>
         {isPaired ? <button onClick={onUnpair} style={{ background: "none", border: `1px solid ${C.gold}33`, borderRadius: 6, color: C.gold, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit" }}>Unpair</button>
@@ -306,8 +309,8 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
           {genErr && <span style={{ color: C.red, fontSize: 12 }}>{genErr}</span>}
         </div>
         <datalist id="exbank">{EXERCISE_BANK.map((e) => <option key={e} value={e} />)}</datalist>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 52px 60px 80px 1fr 70px 70px 24px", gap: 5, marginBottom: 6 }}>
-          {["Exercise","Sets","Reps","Load","Coaching cue","","",""].map((h, i) => <span key={i} style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>{h}</span>)}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 52px 60px 46px 34px 1fr 70px 70px 24px", gap: 5, marginBottom: 6 }}>
+          {["Exercise","Sets","Reps","Load","BW","Coaching cue","","",""].map((h, i) => <span key={i} style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>{h}</span>)}
         </div>
         {blocks.map((block, bi) => {
           const labels = getSupersetLabels(block.exercises);
@@ -414,7 +417,10 @@ function SessionDetailModal({ log, workout, athlete, onClose }) {
 function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSave, onClose }) {
   const [sets, setSets] = useState(() => {
     const init = {};
-    workout.blocks.forEach((b) => b.exercises.forEach((ex) => { init[ex.id] = existingLog?.sets?.[ex.id] || Array.from({ length: parseInt(ex.sets) || 3 }, () => ({ reps: "", load: "", done: false })); }));
+    workout.blocks.forEach((b) => b.exercises.forEach((ex) => {
+      const isBW = ex.load?.trim().toUpperCase() === "BW";
+      init[ex.id] = existingLog?.sets?.[ex.id] || Array.from({ length: parseInt(ex.sets) || 3 }, () => ({ reps: "", load: isBW ? "BW" : "", done: false }));
+    }));
     return init;
   });
   const [note, setNote] = useState(existingLog?.note || "");
@@ -436,15 +442,15 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
         {history && <div style={{ display: "flex", gap: 6, marginBottom: 7, flexWrap: "wrap" }}><span style={{ fontSize: 11, color: C.muted }}>Last ({fmtDate(history.date)}):</span>{history.sets.map((s, i) => <span key={i} style={{ fontSize: 11, color: C.mutedUp, background: C.bg, borderRadius: 4, padding: "1px 7px" }}>S{i + 1}: {s.reps || "—"} @ {s.load || "—"}</span>)}</div>}
         {ex.note && <p style={{ margin: "0 0 8px", fontSize: 12, color: C.teal, fontStyle: "italic" }}>"{ex.note}"</p>}
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          {(sets[ex.id] || []).map((row, idx) => (
+          {(sets[ex.id] || []).map((row, idx) => { const exIsBW = ex.load?.trim().toUpperCase() === "BW"; return (
             <div key={idx} style={{ display: "flex", alignItems: "center", gap: 4, background: row.done ? C.tealGlow : "rgba(255,255,255,.03)", border: `1px solid ${row.done ? C.teal : C.border}`, borderRadius: 7, padding: "4px 7px" }}>
               <span style={{ fontSize: 10, color: C.muted, width: 14 }}>S{idx + 1}</span>
               <input value={row.reps} inputMode="numeric" onChange={(e) => updSet(ex.id, idx, "reps", e.target.value)} placeholder={ex.reps} style={{ ...inpSm, width: 40 }} />
               <span style={{ color: C.muted, fontSize: 10 }}>@</span>
-              <input value={row.load} inputMode="numeric" onChange={(e) => updSet(ex.id, idx, "load", e.target.value)} placeholder={ex.load || "—"} style={{ ...inpSm, width: 50 }} />
+              <input value={row.load} inputMode={exIsBW ? "text" : "numeric"} disabled={exIsBW} onChange={(e) => updSet(ex.id, idx, "load", e.target.value)} placeholder={ex.load || "—"} style={{ ...inpSm, width: 50, opacity: exIsBW ? 0.6 : 1 }} />
               <button onClick={() => toggleDone(ex.id, idx, ex.reps)} style={{ background: "none", border: "none", cursor: "pointer", color: row.done ? C.teal : C.muted, fontSize: 17, padding: 0, lineHeight: 1 }}>{row.done ? "✓" : "○"}</button>
             </div>
-          ))}
+          ); })}
         </div>
       </div>
     );
