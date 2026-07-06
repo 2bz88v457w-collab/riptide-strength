@@ -480,7 +480,11 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
   const updSet = (exId, idx, k, v, isBW, prescribedReps) => setSets((s) => ({
     ...s,
     [exId]: s[exId].map((r, i) => {
-      if (i !== idx) return r;
+      if (i !== idx) {
+        // Carry an entered weight forward to later sets that haven't been given their own weight yet
+        if (!isBW && k === "load" && i > idx && !r.load.trim()) return { ...r, load: v };
+        return r;
+      }
       const updated = { ...r, [k]: v };
       // Auto-mark complete: weighted exercises complete when a load is entered;
       // bodyweight exercises complete when reps are entered (load is pre-filled/locked).
