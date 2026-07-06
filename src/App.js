@@ -480,11 +480,7 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
   const updSet = (exId, idx, k, v, isBW, prescribedReps) => setSets((s) => ({
     ...s,
     [exId]: s[exId].map((r, i) => {
-      if (i !== idx) {
-        // Carry an entered weight forward to later sets that haven't been given their own weight yet
-        if (!isBW && k === "load" && i > idx && !r.load.trim()) return { ...r, load: v };
-        return r;
-      }
+      if (i !== idx) return r;
       const updated = { ...r, [k]: v };
       // Auto-mark complete: weighted exercises complete when a load is entered;
       // bodyweight exercises complete when reps are entered (load is pre-filled/locked).
@@ -497,6 +493,15 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
       return updated;
     }),
   }));
+  // Carry a finished weight entry forward to later sets that haven't been given their own weight yet.
+  // Runs on blur (not on every keystroke) so it sees the fully-typed value instead of the first digit.
+  const fillLoadForward = (exId, idx, v) => {
+    if (!v.trim()) return;
+    setSets((s) => ({
+      ...s,
+      [exId]: s[exId].map((r, i) => (i > idx && !r.load.trim()) ? { ...r, load: v } : r),
+    }));
+  };
   const toggleDone = (exId, idx, prescribedReps) => {
     setSets((s) => { const current = s[exId][idx]; const nowDone = !current.done; const reps = current.reps || (nowDone ? prescribedReps : ""); return { ...s, [exId]: s[exId].map((r, i) => i === idx ? { ...r, done: nowDone, reps } : r) }; });
   };
@@ -521,7 +526,7 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
               <span style={{ fontSize: 10, color: C.muted, width: 14 }}>S{idx + 1}</span>
               <input value={row.reps} inputMode="numeric" onChange={(e) => updSet(ex.id, idx, "reps", e.target.value, exIsBW)} placeholder={ex.reps} style={{ ...inpSm, width: 40 }} />
               <span style={{ color: C.muted, fontSize: 10 }}>@</span>
-              <input value={row.load} inputMode={exIsBW ? "text" : "numeric"} disabled={exIsBW} onChange={(e) => updSet(ex.id, idx, "load", e.target.value, exIsBW, ex.reps)} placeholder={ex.load || "—"} style={{ ...inpSm, width: 50, opacity: exIsBW ? 0.6 : 1 }} />
+              <input value={row.load} inputMode={exIsBW ? "text" : "numeric"} disabled={exIsBW} onChange={(e) => updSet(ex.id, idx, "load", e.target.value, exIsBW, ex.reps)} onBlur={(e) => !exIsBW && fillLoadForward(ex.id, idx, e.target.value)} placeholder={ex.load || "—"} style={{ ...inpSm, width: 50, opacity: exIsBW ? 0.6 : 1 }} />
               {isPR && <span title="New PR!" style={{ fontSize: 13 }}>🔥</span>}
               <button onClick={() => toggleDone(ex.id, idx, ex.reps)} style={{ background: "none", border: "none", cursor: "pointer", color: row.done ? C.teal : C.muted, fontSize: 17, padding: 0, lineHeight: 1 }}>{row.done ? "✓" : "○"}</button>
             </div>
