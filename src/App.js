@@ -16,24 +16,192 @@ const C = {
 const BLOCK_COLORS = [C.teal, C.gold, "#A78BFA", C.red, C.mutedUp];
 const BLOCKS = ["Warm-up", "Block 1", "Block 2", "Block 3", "Cool Down"];
 
-const EXERCISE_BANK = [
-  "Alt V Ups","Alt Leg Lowers","Arnold Press","Back Squat","Banded Chest Press OH Extension",
-  "Banded Hamstring Curls","Banded Hip Extension","Battle Rope Wave","Bicycles","Bird Dog",
-  "Box Jump","Broad Jump","Bulgarian Split Squat","Cable Pull-Through","Centipede",
-  "Copenhagen Plank","Copenhagen Plank (Variation)","DB Bench Press","DB Box Step Up",
-  "DB Front Squat","DB Snatch","DB Thrusters","Dead Bug","Dead Bug (Banded)",
-  "Dual KB Front Squat","Face Pull","Farmers Carry","Floor Chest Press","Glute Bridge",
-  "Glute Bridge OH Extension","Goblet Squat","Half Kneeling Slam Ball Throw",
-  "Half-Kneeling Shoulder Press","Hip Hinge","Hip Thrust","Hollow Hold","KB Clean",
-  "KB Swing","Landmine Press","Lat Pull Down","Leg Lowers","Med Ball Rotational Throw",
-  "Med Ball Slam","Nordic Curl","Overhead Press","Pallof Press","Power Push Ups",
-  "Pull Ups","Pull-up / Band-Assisted","Push ups","Push-up Variation","PVC OH Squat",
-  "Quadruped Med Ball Twist","RDL","Rear Foot Elevated Split Squat","Renegade Row",
-  "Reverse Fly","Reverse Lunge","Romanian Deadlift","Seated Row","Seated Shoulder Press",
-  "Single Arm KB Front Squat","Single Leg Hip Thrust","Single Leg Layouts","Single-Leg RDL",
-  "Slam Ball","Sled Push","Squat Jump","Start Slam Ball Throw","Step-up","Suitcase Carry",
-  "TRX Chest Press","TRX Plank Pike","TRX Row","TRX YTWs","Toes to Bar","Trap Bar Deadlift",
-];
+// Exercise library grouped by movement function. A move can belong to several
+// types (e.g. Renegade Row + DB is PULL, PUSH, and BRACE). FUNCTION is mobility /
+// locomotion work and is not required for a balanced workout.
+const EXERCISE_CATEGORIES = {
+  SQUAT: [
+    "180 Jump", "180 Jump - Rapid Fire", "360 Jump", "Active Bows", "Alternating Lunge Jump",
+    "Assisted Single-leg Pistol Squat + TRX", "Assisted Single-leg Squat", "Assisted Single-leg Squat + Band",
+    "Assisted Single-leg Squat + TRX", "Back Squat", "Back Squat + BB", "Bear Hug Squat + SB", "Bodyweight Squat",
+    "Box Jump", "Broad Jump", "Bulgarian Split Squat", "Burpees", "Cook Squat", "Cook Squat Single-arm Reach",
+    "Crossover Lunge", "DB Box Step Up", "DB Front Squat", "DB Thrusters", "Driving Squat + Plate",
+    "Dual KB Front Squat", "Front Load Reverse Lunge + SB", "Front Load Split Squat + SB", "Front Squat + BB",
+    "Front Squat + DB", "Front Squat Hands Free + BB", "Goblet Squat", "Goblet Squat + DB", "Goblet Squat + KB",
+    "Goblet Squat Curls + KB", "Goblet Squat Heartbeats + KB", "Hop + 90 Twist", "Hop to Jump", "Lateral Bound",
+    "Lateral Bound with Stick", "Lateral Lunge", "Lateral Single-leg Jump DOWN", "Lateral Single-leg Jump UP",
+    "Lateral Single-leg Jump UP & DOWN", "Lateral Squat", "Lateral Step-up", "Leg Blastoff + TRX", "Lunge",
+    "Lunge Jump", "Multi-Planar Lunge", "Overhead Squat", "Overhead Squat + BB", "Overhead Squat + DB",
+    "Overhead Squat + PVC", "Overhead Squat + SB", "Power Step-Up", "Power Step-Up Alternating", "Prisoner Squat",
+    "PVC OH Squat", "Rear Foot Elevated Split Squat", "Rear-Foot-Elevated Squat", "Rear-Foot-Elevated Squat + DB",
+    "Rear-Foot-Elevated Squat + TRX", "Rear-Foot-Elevated Squat Jump", "Reverse Lunge", "Reverse Lunge + Slideboard",
+    "Reverse Rotational Lunge + SB", "Rotational Squat", "Shoulder Lateral Lunge + SB", "Shoulder Reverse Lunge + SB",
+    "Single Arm KB Front Squat", "Single-arm Overhead Squat + DB", "Single-arm Overhead Squat + KB",
+    "Single-arm Squat + KB", "Single-arm Squat to Row + Cable", "Single-leg Alternating Hop",
+    "Single-leg Box Jump DOWN", "Single-leg Box Jump UP", "Single-leg Box Jump UP & DOWN", "Single-leg Hop",
+    "Single-leg Jump", "Single-leg Lateral Hop", "Single-leg Lateral Hop with Stick", "Single-leg Pistol Squat",
+    "Single-leg Sit DOWN", "Single-leg Squat", "Single-leg Squat + DB", "Single-leg Squat Elevated + DB",
+    "Single-leg Squat to Box", "Single-leg Step UP", "Single-leg Wall Sit", "Speed Squat", "Split Squat",
+    "Squat + DB", "Squat Facing Wall", "Squat Jump", "Squat to Side Kick", "Star Hop",
+    "Star Single-leg Alternating Hop", "Star Single-leg Hop", "Start Throw + MB", "Step-up", "Sumo Squat Hold",
+    "Tuck Jump", "Wall Sit",
+  ],
+  HINGE: [
+    "Banded Hamstring Curls", "Banded Hip Extension", "Body Curl + Slideboard", "Body Curl + TRX",
+    "Cable Pull-Through", "DB Snatch", "Deadlift + BB", "Deadlift + DB", "Dropdown Leg Curl + Slideboard",
+    "Elevated Single-leg Hip Lift + TB", "Floor Bridge & Leg Thrust", "Glute Bridge", "Glute Bridge OH Extension",
+    "Good Morning + SB", "Hip Circuit + Mini-Band", "Hip Circuits", "Hip Hinge", "Hip Hinge + KB", "Hip Hinge + SB",
+    "Hip Hinge + Weight", "Hip Hinge Greasing", "Hip Thrust", "Hip Thrust + Bench", "KB Clean", "KB Swing",
+    "Leg Curl + Slideboard", "Leg Curl + TRX", "Lying Adduction + MB-Pad", "Nordic Curl",
+    "Overhead Squat X-Walk + Band", "RDL", "Reverse Extension + Bench", "Reverse Lunge + Slideboard",
+    "Romanian Deadlift", "Romanian Deadlift + BB", "Romanian Deadlift + DB", "Single Leg Hip Thrust",
+    "Single Leg Layouts", "Single-arm Romanian Deadlift + DB", "Single-arm Romanian Deadlift + KB",
+    "Single-arm Snatch + DB", "Single-arm Snatch + KB", "Single-arm Swing + KB", "Single-leg Balance",
+    "Single-leg Body Curl + TRX", "Single-leg Curl + TRX", "Single-leg Deadlift & Row + Cable",
+    "Single-leg Deadlift + BB", "Single-leg Deadlift + Cable", "Single-leg Deadlift + DB",
+    "Single-leg Deadlift + DBx2", "Single-leg Deadlift + SB", "Single-leg Floor Bridge", "Single-leg Hip Lift + TB",
+    "Single-leg Hip Thrust + Bench", "Single-leg Layout 3D", "Single-leg Layout to Diagonal Reach",
+    "Single-leg Layout to Wall Touch", "Single-Leg RDL", "Slideboard", "Squat to Side Kick", "Swing + KB",
+    "Swing + KBx2", "Table Top", "Trap Bar Deadlift", "X-Walk + Band",
+  ],
+  PUSH: [
+    "Alternating Chest Press + DB", "Alternating Press + DB", "Alternating Press + KB", "Arnold Press",
+    "Around the World + SB", "Banded Chest Press OH Extension", "Behind Neck Press + BB", "Bench Press + BB",
+    "Chest Pass + MB", "Chest Press + DB", "Chest Press + TRX", "Curl to Press + DB", "DB Bench Press",
+    "Decline Push-up", "Dive Bomber Push-up", "Dropdown Push-up", "Floor Chest Press", "Ghost Renegade Row",
+    "Half-Kneeling Shoulder Press", "Halo + KB", "Hands-up Push-up", "Handstand Push-up", "Incline Bench Press + BB",
+    "Incline Chest Press + DB", "Incline Push-up", "Incline Single-arm Push-up", "Inverted Handstand Push-up",
+    "Kneeling Alternating Press + DB", "Kneeling Alternating Press + KB", "Kneeling Alternating Press + SB",
+    "Kneeling Chest Press + Cable", "Kneeling Overhead Press + SB", "Kneeling Power Push-up",
+    "Kneeling Single-arm Press + DB", "Kneeling Single-arm Press + KB", "Landmine Press", "Overhead Press",
+    "Overhead Press + BB", "Overhead Press + DB", "Pike Push-up", "Power Push Ups", "Push Press + BB",
+    "Push Press + DB", "Push Pull + Cable", "Push ups", "Push-up + SB", "Push-up + TRX", "Push-up Adduction + MB-Pad",
+    "Push-up Hold", "Push-up Shoulder Taps", "Push-up to Twist", "Push-up Tuck + TRX", "Push-up Variation",
+    "Push-up Walk", "Renegade Row + DB", "Seated Shoulder Press", "Shot Put Throw + MB",
+    "Single-arm Chest Press + DB", "Single-arm Overhead Press + DB", "Single-arm Overhead Press + KB",
+    "Single-leg Chest Pass + MB", "Single-leg Push-up", "Spiderman Push-up", "Spiderman Push-up + SB",
+    "Split Jerk + DB", "Staggered Push-up", "Tall Kneeling Alternating Press + DB",
+    "Tall Kneeling Alternating Press + KB", "Tall Kneeling Chest Pass + MB", "Tall Kneeling Single-arm Press + DB",
+    "Tall Kneeling Single-arm Press + KB", "Tempo Push-up", "Tricep Extension + TRX", "TRX Chest Press",
+    "Walkout Push-up + SB",
+  ],
+  PULL: [
+    "Active-Passive Hang", "Assisted Behind Neck Pull-up + Band", "Assisted Pull-up + Band", "Batwing + DB",
+    "Behind Neck Pull-up", "Bent Knee Row + TRX", "Chest Chin-up", "Chest Pull-up", "Chin-up",
+    "Dropdown Behind Neck Pull-up", "Dropdown Pull-up", "Face Pull", "Facepull + Cable", "Flexed Arm Hang",
+    "Inverted Bent Knee Row + BB", "Lat Pull Down", "Overhead Raise + TRX", "Overhead Throw + MB", "Plank Row + DB",
+    "Pull Ups", "Pull-up / Band-Assisted", "Pullover + DB", "Pullover + SB", "Pullover Leg Raise + SB",
+    "Push Pull + Cable", "Renegade Row", "Renegade Row + DB", "Reverse Fly", "Reverse Flys + DB", "Row + BB",
+    "Row + DB", "Row + SB", "Row + TRX", "Seated Pull-up + TRX", "Seated Pull-up Angled + TRX", "Seated Row",
+    "Shoulder Combo + Band", "Shoulder Pull Apart Series + Band", "Shoulder Walkback + Band", "Side-to-Side Pull-up",
+    "Single Straight-leg Pull-up + TRX", "Single-arm Row + DB", "Single-arm Row + SB", "Single-arm Row + TRX",
+    "Single-arm Squat to Row + Cable", "Slam + MB", "Speed Pull-ups + Band", "Speed Skiers + Band",
+    "Straight-leg Pull-up + TRX", "TRX Row", "TRX YTWs", "Wide Overhead Raise + TRX", "Woodchop + MB",
+  ],
+  BRACE: [
+    "ABC Leg Raise", "Alt Leg Lowers", "Alt V Ups", "Alternating Bridge", "Alternating Leg Lift", "Alternating Plank",
+    "Alternating PNF + Cable", "Back Bridge", "Back Plank", "Bicycles", "Bird Dog", "Bodysaw + Slideboard",
+    "Bodysaw + TRX", "Bridge Drag + SB", "Bridge Shoulder Taps", "Bridge to Pike + TRX", "Bridge to Plank",
+    "Bridge to Plank Adduction + MB-Pad", "Bridge to Twist", "Bridge to Twist + TRX", "Centipede", "Centipede Kicks",
+    "Centipede Shoulder Taps", "Copenhagen Plank", "Copenhagen Plank (Variation)", "Core Push + Cable",
+    "Core Rotation + Band", "Crossover Crunch", "Crunch + Stick", "Dead Bug", "Dead Bug (Banded)", "Dip Walk + Step",
+    "Driving Squat + Plate", "Dropdown Straight-leg Sit-up", "Elevated Single-leg Hip Lift + TB", "Farmer Carry + DB",
+    "Farmers Carry", "Floor Bridge", "Floor Bridge & Leg Thrust", "Flutter Kicks", "Front Bridge",
+    "Front Bridge + TRX", "Ghost Renegade Row", "Goblet Squat Heartbeats + KB", "Half Kneeling Slam Ball Throw",
+    "Half Turkish Get-up + KB", "Hanging Knee Raise", "Hanging Leg Raise", "Hanging Wipers", "Hip Thrust + Bench",
+    "Hollow", "Hollow Hold", "Kneeling Chest Press + Cable", "Kneeling Chop & Press + Cable",
+    "Kneeling Reverse Woodchop + Cable", "Kneeling Rollout + Ab Wheel", "Kneeling Rollout + BB",
+    "Kneeling Rollout + SB", "Kneeling Side Throw + MB", "Kneeling Woodchop + Cable", "Lateral Flutter Kicks",
+    "Lateral Mountain Climber", "Leg Lowers", "Leg Lowers + Band", "Leg Raise", "Leg Raise + Bench", "Lizards",
+    "Lunge Reverse Woodchop + Cable", "Lunge Woodchop + Cable", "Lying Adduction + MB-Pad",
+    "Med Ball Rotational Throw", "Med Ball Slam", "Mountain Climber", "Opposite Bridge", "Opposite Plank",
+    "Opposite V-up", "Pallof Press", "Plank Adduction + MB-Pad", "Plank Row + DB", "Plank Shoulder Taps",
+    "Plank Side Tuck + TRX", "Plank Swings + TRX", "Plank to Pike + TRX", "Plank Tuck + TRX", "PNF + Cable",
+    "Pullover + DB", "Push Pull + Cable", "Quadraped Opposite", "Quadruped Med Ball Twist", "Renegade Row + DB",
+    "Reverse Crunch", "Reverse Russian Twist", "Reverse Woodchop + Cable", "Rock the Boat", "Rollout + Ab Wheel",
+    "Rollout + TRX", "Russian Twist + MB", "Seated Leg Circles", "Short Side Bridge", "Shot Put Throw + MB",
+    "Side Bridge", "Side Throw + MB", "Side Throw with Step + MB", "Side Tuck + TRX", "Single-leg Floor Bridge",
+    "Single-leg Hip Lift + TB", "Single-leg Hip Thrust + Bench", "Single-leg Side Throw + MB", "Slam Ball",
+    "Speed PNF Rotation + Band", "Speed Rotation + Band", "Speed V-ups", "Start Slam Ball Throw", "Start Throw + MB",
+    "Stir the Pot + SB", "Stir the Pot Single-leg + SB", "Straight-leg Sit-up", "Straight-leg Sit-up & Leg Raise",
+    "Straight-leg Sit-up + DB", "Suitcase Carry", "Suitcase Carry + DB", "Super Turtle", "Superman to V-up",
+    "Swing + TRX", "Table Top", "Toe Touch", "Toes to Bar", "TRX Plank Pike", "Tuck + TRX", "Turkish Get-up + KB",
+    "Twist + MB", "Twisting Mountain Climber", "V In-Out", "V-up", "V-up Switch + SB", "Waiter Carry + DB",
+    "Walkout + SB", "Woodchop + Cable",
+  ],
+  FUNCTION: [
+    "5-10-5 Drill", "ABC Leg Raise", "Active Bows", "Adductors + Foam Roll", "Alternating Bridge",
+    "Alternating Leg Lift", "Alternating Plank", "Ankle ABC's", "Ankle Mobs 3D", "Ankle Mobs 3D Kneeling",
+    "Around the World + SB", "Around the World Stretch (closed)", "Around the World Stretch (open)",
+    "Assisted Single-leg Squat", "Back + Foam Roll", "Back Bridge", "Back Plank", "Backpedal", "Backward Run",
+    "Backward Step Overs", "Battle Rope Wave", "Batwing + DB", "Bear Crawl", "Bodyweight Squat", "Brettzel",
+    "Brettzel 2.0", "Bridge Shoulder Taps", "Bridge to Plank", "Bridge to Plank Adduction + MB-Pad",
+    "Bridge to Twist", "Burpees", "Butt Kickers", "Calf + Foam Roll", "Carioca", "Carioca with High Knees",
+    "Cat - Cow Stretch", "Centipede", "Centipede Kicks", "Centipede Shoulder Taps", "Chest Stretch", "Chicken Wing",
+    "Child's Pose - Cobra Stretch", "Cook Squat", "Cook Squat Single-arm Reach", "Crab Crawl Backward",
+    "Crab Crawl Forward", "Crossover Lunge", "Crossover Lunge Alternating", "Crossover Lunge Behind",
+    "Crossover Lunge In Front", "Crossover Skip", "Crossover Skip to Sprint", "Dead Bug", "Decline Push-up",
+    "Dive Bomber Push-up", "Dropdown Push-up", "Dropdown Straight-leg Sit-up", "Eldoa A Stretch", "Eldoa B Stretch",
+    "Eldoa T Stretch", "Elevated Single-leg Hip Lift + TB", "EUT Stretch", "Farmer Carry + DB", "Floor Angel",
+    "Floor Angel Knees Bent", "Floor Bridge", "Floor Bridge & Leg Thrust", "Flutter Kicks", "Front Bridge",
+    "Ghost Renegade Row", "Goblet Squat + KB", "Gorilla", "Half Turkish Get-up + KB", "Halo + KB",
+    "Hamstring + Foam Roll", "Hands-up Push-up", "Heel to Hip", "Heel to Hip & Bend", "High Bear Crawl",
+    "High Knee Cradle", "High Knee Run", "High Knee Run Backward", "High Knee Skip", "High Knee Skip Backward",
+    "High Knee Walk", "Hip Circuit + Mini-Band", "Hip Circuits", "Hip Hinge + Weight", "Hip Hinge Greasing",
+    "Hip Thrust + Bench", "Hollow", "Hop + 90 Twist", "Hop to Jump", "Inchworm", "Incline Push-up",
+    "Incline Single-arm Push-up", "Iron Cross", "Jumping Jacks", "Kneeling Hip Flexor Stretch",
+    "Kneeling Hip Flexor Stretch + Bench", "Kneeling Power Push-up", "Kneeling T Stretch",
+    "Kneeling T-spine Mobility", "Lat + Foam Roll", "Lat Stretch", "Lateral Bear Crawl", "Lateral Bound",
+    "Lateral Bound with Stick", "Lateral Crossover Skip", "Lateral Flutter Kicks", "Lateral Lunge", "Lateral Shuffle",
+    "Lateral Shuffle to Sprint", "Lateral Skip", "Lateral Squat", "LEFT Drill", "Leg Lowers + Band", "Leg Raise",
+    "Leg Swings", "Lizards", "Log Roll", "Lunge", "Lunge & Twist", "Lying Adduction + MB-Pad", "Mountain Climber",
+    "Multi-Planar Lunge", "Opposite Bridge", "Opposite Plank", "Opposite V-up", "Overhead Squat",
+    "Overhead Squat X-Walk + Band", "Pike Push-up", "Piriformis + Foam Roll", "Piriformis Lying",
+    "Piriformis Stretch", "Piriformis Stretch + Bench", "Plank Adduction + MB-Pad", "Plank Shoulder Taps",
+    "Prisoner Squat", "Push ups", "Push-up Hold", "Push-up Shoulder Taps", "Push-up to Twist", "Push-up Walk",
+    "Quadraped Opposite", "Quads + Foam Roll", "Quick Feet", "Quick Feet with Slow Arms", "Rear-Foot-Elevated Squat",
+    "Reverse Bear Crawl", "Reverse Crunch", "Reverse High Bear Crawl", "Reverse Lunge",
+    "Reverse Lunge & Twist – Dynamic", "Reverse Lunge Combo", "Reverse Russian Twist", "Reverse Single-leg Layout",
+    "Reverse Spiderman", "Rock the Boat", "Roll Back to Stand", "Rotational Squat", "Roundoff", "Run & Jump",
+    "Scap Push-ups", "Scorpion", "Seated Leg Circles", "Seated T-spine Mobility", "Seated Wall Angel",
+    "Seated Wall Angel Knees Bent", "Short Side Bridge", "Shoulder Circuits", "Shoulder Combo + Band",
+    "Shoulder Mobility + PVC Pipe", "Shoulder Mobility + Tennis Ball", "Shoulder Pull Apart Series + Band",
+    "Shoulder Walkback + Band", "Side Bridge", "Side Shuffle", "Single Leg Layouts", "Single-leg Alternating Hop",
+    "Single-leg Balance", "Single-leg Floor Bridge", "Single-leg Hip Lift + TB", "Single-leg Hip Thrust + Bench",
+    "Single-leg Hop", "Single-leg Jump", "Single-leg Lateral Hop", "Single-leg Lateral Hop with Stick",
+    "Single-leg Layout + Twist", "Single-leg Layout 3D", "Single-leg Layout to Diagonal Reach",
+    "Single-leg Layout to Wall Touch", "Single-leg Push-up", "Single-leg Sit DOWN", "Single-leg Squat",
+    "Single-leg Wall Sit", "Skipping", "Sled Push", "Spiderman", "Spiderman Push-up", "Split Squat", "Squat & Twist",
+    "Squat to Side Kick", "Staggered Push-up", "Standing Wall Angel", "Stationary Skips", "Stir the Pot + SB",
+    "Straight-leg Sit-up", "Straight-leg Sit-up & Leg Raise", "Straight-leg Skip", "Straight-leg Walk",
+    "Suitcase Carry + DB", "Sumo Squat Hold", "Super Spiderman", "Super Turtle", "Superman to V-up",
+    "T-spine + Foam Roll", "T-spine Mobility + Double TB", "Table Top", "Table Top Walk", "Toe Touch",
+    "Turkish Get-up + KB", "Waiter Carry + DB", "Wall Sit", "Wide Bear Crawl", "Wide Skip", "Windup Stretch",
+    "X-Walk + Band",
+  ],
+};
+
+// Movement functions every workout should include at least once (FUNCTION is optional).
+const REQUIRED_MOVE_TYPES = ["SQUAT", "HINGE", "PUSH", "PULL", "BRACE"];
+
+// Flat list for datalists, grouped by move type, deduped across types.
+const EXERCISE_BANK = [...new Set(Object.values(EXERCISE_CATEGORIES).flat())];
+
+// lowercased exercise name -> [move types]
+const EXERCISE_TYPES = {};
+Object.entries(EXERCISE_CATEGORIES).forEach(([type, names]) => names.forEach((n) => {
+  const k = n.toLowerCase();
+  (EXERCISE_TYPES[k] = EXERCISE_TYPES[k] || []).push(type);
+}));
+
+function getMoveTypes(name) { return EXERCISE_TYPES[name?.toLowerCase().trim()] || []; }
+
+// Set of move types covered by a workout's blocks.
+function getWorkoutMoveTypes(blocks) {
+  const covered = new Set();
+  (blocks || []).forEach((b) => b.exercises.forEach((e) => getMoveTypes(e.name).forEach((t) => covered.add(t))));
+  return covered;
+}
 
 const TEST_METRICS = [
   { key: "pushups", label: "Push-ups", unit: "reps in 30s", color: C.teal },
@@ -92,6 +260,29 @@ function parseLoadNum(v) {
   const n = parseFloat(String(v).replace(/[^0-9.]/g, ""));
   return isNaN(n) ? null : n;
 }
+
+// Round a computed weight to the nearest plate increment.
+function roundLoad(n, inc = 2.5) { return Math.round(n / inc) * inc; }
+
+// ─── WEIGHT PROGRESSION ("BUMPS") ─────────────────────────────────────────────
+// Look up a pending coach bump for a movement and compute the pre-fill target
+// from the athlete's most recent logged session: heaviest set × (1 + pct/100).
+// Returns { rule, base, target } or null when there's no rule or no usable
+// numeric history (the rule stays pending until the movement is logged with a weight).
+function getProgressionFill(exerciseName, athleteId, progressions, allLogs, allWorkouts, currentWorkoutId) {
+  const name = exerciseName?.toLowerCase().trim();
+  if (!name) return null;
+  const rule = progressions.find((p) => p.athleteId === athleteId && p.exerciseName.toLowerCase().trim() === name);
+  if (!rule) return null;
+  const hist = getLastSets(exerciseName, athleteId, allLogs, allWorkouts, currentWorkoutId);
+  if (!hist) return null;
+  const nums = hist.sets.map((s) => parseLoadNum(s.load)).filter((n) => n !== null && n > 0);
+  if (nums.length === 0) return null;
+  const base = Math.max(...nums);
+  return { rule, base, target: roundLoad(base * (1 + rule.pct / 100)) };
+}
+
+export { roundLoad, getProgressionFill, getMoveTypes, getWorkoutMoveTypes, EXERCISE_CATEGORIES, EXERCISE_BANK, REQUIRED_MOVE_TYPES };
 
 // Best numeric load an athlete has ever logged for an exercise name (excluding current workout).
 function getBestLoad(exerciseName, athleteId, allLogs, allWorkouts, currentWorkoutId) {
@@ -358,7 +549,22 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
           <Btn onClick={handleGen} disabled={generating} small>{generating ? "Generating…" : "Generate"}</Btn>
           {genErr && <span style={{ color: C.red, fontSize: 12 }}>{genErr}</span>}
         </div>
-        <datalist id="exbank">{EXERCISE_BANK.map((e) => <option key={e} value={e} />)}</datalist>
+        <datalist id="exbank">{EXERCISE_BANK.map((e) => <option key={e} value={e} label={getMoveTypes(e).join(" · ")} />)}</datalist>
+        {(() => {
+          const covered = getWorkoutMoveTypes(blocks);
+          const count = REQUIRED_MOVE_TYPES.filter((t) => covered.has(t)).length;
+          const complete = count === REQUIRED_MOVE_TYPES.length;
+          return (
+            <div style={{ background: C.bg, border: `1px solid ${complete ? C.teal : C.gold}44`, borderRadius: 10, padding: "8px 14px", marginBottom: 14, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: complete ? C.teal : C.gold, whiteSpace: "nowrap" }}>Move types {count}/{REQUIRED_MOVE_TYPES.length}</span>
+              {REQUIRED_MOVE_TYPES.map((t) => { const on = covered.has(t); return (
+                <span key={t} style={{ fontSize: 11, fontWeight: 700, textTransform: "capitalize", color: on ? C.teal : C.muted, background: on ? C.tealGlow : "transparent", border: `1px solid ${on ? C.teal : C.border}`, borderRadius: 20, padding: "2px 10px" }}>{on ? "✓ " : ""}{t.toLowerCase()}</span>
+              ); })}
+              {covered.has("FUNCTION") && <span style={{ fontSize: 11, fontWeight: 700, color: C.mutedUp, border: `1px solid ${C.border}`, borderRadius: 20, padding: "2px 10px" }}>✓ function</span>}
+              {!complete && <span style={{ fontSize: 11, color: C.muted }}>aim for at least one squat, hinge, push, pull & brace move</span>}
+            </div>
+          );
+        })()}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 52px 60px 46px 34px 1fr 70px 70px 24px", gap: 5, marginBottom: 6 }}>
           {["Exercise","Sets","Reps","Load","BW","Coaching cue","","",""].map((h, i) => <span key={i} style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>{h}</span>)}
         </div>
@@ -464,12 +670,25 @@ function SessionDetailModal({ log, workout, athlete, onClose }) {
 }
 
 // ─── LOG MODAL ────────────────────────────────────────────────────────────────
-function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSave, onClose }) {
+function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progressions = [], onConsumeProgressions, onSave, onClose }) {
+  // Coach bumps that fire in this session, frozen at open: { [exId]: { rule, base, target } }.
+  // Only fresh logs get pre-filled — re-opening a saved log never re-fills or re-consumes.
+  const [prefills] = useState(() => {
+    if (existingLog) return {};
+    const map = {};
+    workout.blocks.forEach((b) => b.exercises.forEach((ex) => {
+      if (ex.load?.trim().toUpperCase() === "BW") return;
+      const fill = getProgressionFill(ex.name, athleteId, progressions, allLogs, allWorkouts, workout.id);
+      if (fill) map[ex.id] = fill;
+    }));
+    return map;
+  });
   const [sets, setSets] = useState(() => {
     const init = {};
     workout.blocks.forEach((b) => b.exercises.forEach((ex) => {
       const isBW = ex.load?.trim().toUpperCase() === "BW";
-      init[ex.id] = existingLog?.sets?.[ex.id] || Array.from({ length: parseInt(ex.sets) || 3 }, () => ({ reps: "", load: isBW ? "BW" : "", done: false }));
+      // Pre-filled loads bypass updSet on purpose: the set stays not-done until the athlete confirms.
+      init[ex.id] = existingLog?.sets?.[ex.id] || Array.from({ length: parseInt(ex.sets) || 3 }, () => ({ reps: "", load: isBW ? "BW" : prefills[ex.id] ? String(prefills[ex.id].target) : "", done: false }));
     }));
     return init;
   });
@@ -505,7 +724,16 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
   const toggleDone = (exId, idx, prescribedReps) => {
     setSets((s) => { const current = s[exId][idx]; const nowDone = !current.done; const reps = current.reps || (nowDone ? prescribedReps : ""); return { ...s, [exId]: s[exId].map((r, i) => i === idx ? { ...r, done: nowDone, reps } : r) }; });
   };
-  const handleSave = async () => { setSaving(true); await onSave({ athleteId, workoutId: workout.id, date: workout.date, sets, note, blockNotes, rpe }); setSaving(false); };
+  const handleSave = async () => {
+    setSaving(true);
+    const ok = await onSave({ athleteId, workoutId: workout.id, date: workout.date, sets, note, blockNotes, rpe });
+    // A bump is one-time: consume every rule that fired in this session, even if the athlete edited the value.
+    if (ok !== false && onConsumeProgressions) {
+      const ruleIds = [...new Set(Object.values(prefills).map((p) => p.rule.id))];
+      if (ruleIds.length) await onConsumeProgressions(ruleIds);
+    }
+    setSaving(false);
+  };
   const inpSm = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.white, padding: "4px 6px", fontSize: 13, textAlign: "center", fontFamily: "inherit", boxSizing: "border-box" };
 
   const renderExLog = (ex, isSupersetMember = false) => {
@@ -518,6 +746,7 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, onSav
         {(history || bestInfo) && <div style={{ display: "flex", gap: 6, marginBottom: 7, flexWrap: "wrap", alignItems: "center" }}>
           {history && <><span style={{ fontSize: 11, color: C.muted }}>Last ({fmtDate(history.date)}):</span>{history.sets.map((s, i) => <span key={i} style={{ fontSize: 11, color: C.mutedUp, background: C.bg, borderRadius: 4, padding: "1px 7px" }}>S{i + 1}: {s.reps || "—"} @ {s.load || "—"}</span>)}</>}
           {bestInfo && <span style={{ fontSize: 11, fontWeight: 700, color: C.gold, background: `${C.gold}14`, border: `1px solid ${C.gold}33`, borderRadius: 4, padding: "1px 7px" }}>Best: {bestInfo.best}</span>}
+          {prefills[ex.id] && <span style={{ fontSize: 11, fontWeight: 700, color: C.gold, background: `${C.gold}14`, border: `1px solid ${C.gold}33`, borderRadius: 4, padding: "1px 7px" }}>⬆ Coach bump {prefills[ex.id].rule.pct > 0 ? "+" : ""}{prefills[ex.id].rule.pct}%: {prefills[ex.id].base} → {prefills[ex.id].target}</span>}
         </div>}
         {ex.note && <p style={{ margin: "0 0 8px", fontSize: 12, color: C.teal, fontStyle: "italic" }}>"{ex.note}"</p>}
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
@@ -829,6 +1058,140 @@ function ProgressDashboard({ athletes, testScores, onEnterScores }) {
   );
 }
 
+// ─── PROGRESSION (BUMPS) TAB ──────────────────────────────────────────────────
+function ProgressionTab({ athletes, progressions, logs, workouts, onSave, onDelete }) {
+  const [movement, setMovement] = useState("");
+  const [pct, setPct] = useState("5");
+  const [selected, setSelected] = useState([]);
+  const [search, setSearch] = useState("");
+  const [saving, setSaving] = useState(false);
+  const poolGroups = [...new Set(athletes.map((a) => a.event).filter(Boolean))];
+  const champTags = ["Regional", "State"].filter((tag) => athletes.some((a) => a.champTag === tag));
+  const toggleAthlete = (id) => setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+  const selectGroup = (group) => { const ids = athletes.filter((a) => a.event === group).map((a) => a.id); const allOn = ids.every((id) => selected.includes(id)); setSelected((s) => allOn ? s.filter((x) => !ids.includes(x)) : [...new Set([...s, ...ids])]); };
+  const selectTag = (tag) => { const ids = athletes.filter((a) => a.champTag === tag).map((a) => a.id); const allOn = ids.length > 0 && ids.every((id) => selected.includes(id)); setSelected((s) => allOn ? s.filter((x) => !ids.includes(x)) : [...new Set([...s, ...ids])]); };
+  const filteredAthletes = athletes.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
+  const pctNum = parseFloat(pct);
+  const canCreate = movement.trim() && !isNaN(pctNum) && pctNum !== 0 && selected.length > 0;
+  const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
+
+  // Base → target preview for one athlete, same math as getProgressionFill but without a rule yet.
+  const previewFor = (athleteId, exName, p) => {
+    const hist = getLastSets(exName, athleteId, logs, workouts, null);
+    const nums = (hist?.sets || []).map((s) => parseLoadNum(s.load)).filter((n) => n !== null && n > 0);
+    if (!nums.length) return null;
+    const base = Math.max(...nums);
+    return { base, target: roundLoad(base * (1 + p / 100)) };
+  };
+
+  const handleCreate = async () => {
+    if (!canCreate || saving) return;
+    setSaving(true);
+    await onSave(selected.map((athleteId) => ({ id: uid(), athleteId, exerciseName: movement.trim(), pct: pctNum, createdAt: Date.now() })));
+    setMovement(""); setPct("5"); setSelected([]); setSearch("");
+    setSaving(false);
+  };
+
+  const pending = [...progressions].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Weight bumps</h1>
+        <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>Pre-fill an athlete's next session of a movement with their last weight bumped by a percentage. One-time: the bump clears once they log it.</p>
+      </div>
+
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18, marginBottom: 24 }}>
+        <datalist id="exbank-prog">{EXERCISE_BANK.map((e) => <option key={e} value={e} label={getMoveTypes(e).join(" · ")} />)}</datalist>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 110px", gap: 12, marginBottom: 14 }}>
+          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>MOVEMENT</label><input value={movement} onChange={(e) => setMovement(e.target.value)} list="exbank-prog" placeholder="e.g. Back Squat" style={inp} /></div>
+          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>INCREASE %</label>
+            <div style={{ position: "relative" }}>
+              <input value={pct} onChange={(e) => setPct(e.target.value)} inputMode="numeric" placeholder="5" style={{ ...inp, paddingRight: 26 }} />
+              <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: C.muted, fontSize: 13 }}>%</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <label style={{ fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: ".05em" }}>Apply to</label>
+          <span style={{ fontSize: 12, color: selected.length > 0 ? C.teal : C.muted, fontWeight: 700 }}>{selected.length} athlete{selected.length !== 1 ? "s" : ""}</span>
+        </div>
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          <div style={{ width: 160, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden", flexShrink: 0 }}>
+            <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Groups</div>
+            <div style={{ padding: 6 }}>
+              {poolGroups.map((g) => { const gIds = athletes.filter((a) => a.event === g).map((a) => a.id); const allOn = gIds.length > 0 && gIds.every((id) => selected.includes(id)); const someOn = gIds.some((id) => selected.includes(id)); return (
+                <button key={g} onClick={() => selectGroup(g)} style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: allOn ? C.tealGlow : "transparent", border: `1px solid ${allOn || someOn ? C.teal : "transparent"}`, borderRadius: 7, padding: "6px 8px", cursor: "pointer", marginBottom: 3, fontFamily: "inherit" }}>
+                  <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${allOn ? C.teal : someOn ? C.teal : C.muted}`, background: allOn ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{allOn && <span style={{ color: C.bg, fontSize: 9, fontWeight: 900 }}>✓</span>}{someOn && !allOn && <span style={{ color: C.teal, fontSize: 11, lineHeight: 1 }}>–</span>}</div>
+                  <span style={{ fontSize: 12, color: allOn ? C.teal : C.white, flex: 1, textAlign: "left" }}>{g}</span>
+                  <span style={{ fontSize: 10, color: C.muted }}>{gIds.length}</span>
+                </button>
+              ); })}
+              {poolGroups.length === 0 && <p style={{ color: C.muted, fontSize: 12, padding: "6px 4px", margin: 0 }}>No groups</p>}
+              {champTags.length > 0 && <div style={{ height: 1, background: C.border, margin: "4px 0" }} />}
+              {champTags.map((tag) => { const gIds = athletes.filter((a) => a.champTag === tag).map((a) => a.id); const allOn = gIds.length > 0 && gIds.every((id) => selected.includes(id)); const someOn = gIds.some((id) => selected.includes(id)); return (
+                <button key={tag} onClick={() => selectTag(tag)} style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: allOn ? `${C.gold}22` : "transparent", border: `1px solid ${allOn || someOn ? C.gold : "transparent"}`, borderRadius: 7, padding: "6px 8px", cursor: "pointer", marginBottom: 3, fontFamily: "inherit" }}>
+                  <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${allOn ? C.gold : someOn ? C.gold : C.muted}`, background: allOn ? C.gold : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{allOn && <span style={{ color: C.bg, fontSize: 9, fontWeight: 900 }}>✓</span>}{someOn && !allOn && <span style={{ color: C.gold, fontSize: 11, lineHeight: 1 }}>–</span>}</div>
+                  <span style={{ fontSize: 12, color: allOn ? C.gold : C.white, flex: 1, textAlign: "left" }}>🏆 {tag}</span>
+                  <span style={{ fontSize: 10, color: C.muted }}>{gIds.length}</span>
+                </button>
+              ); })}
+            </div>
+          </div>
+          <div style={{ flex: 1, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+            <div style={{ padding: "6px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", whiteSpace: "nowrap" }}>Athletes</span>
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 6, color: C.white, padding: "3px 8px", fontSize: 12, fontFamily: "inherit", flex: 1 }} />
+            </div>
+            <div style={{ overflowY: "auto", maxHeight: 200, padding: 6, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
+              {filteredAthletes.map((a) => { const on = selected.includes(a.id); return (
+                <button key={a.id} onClick={() => toggleAthlete(a.id)} style={{ display: "flex", alignItems: "center", gap: 6, background: on ? C.tealGlow : "transparent", border: `1px solid ${on ? C.teal : "transparent"}`, borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontFamily: "inherit" }}>
+                  <div style={{ width: 13, height: 13, borderRadius: 3, border: `2px solid ${on ? C.teal : C.muted}`, background: on ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{on && <span style={{ color: C.bg, fontSize: 8, fontWeight: 900 }}>✓</span>}</div>
+                  <span style={{ fontSize: 12, color: on ? C.teal : C.white, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
+                </button>
+              ); })}
+            </div>
+          </div>
+        </div>
+        {movement.trim() && !isNaN(pctNum) && selected.length > 0 && (
+          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+            <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Preview</p>
+            {selected.map((id) => {
+              const a = athletes.find((x) => x.id === id);
+              if (!a) return null;
+              const pv = previewFor(id, movement, pctNum);
+              return (
+                <p key={id} style={{ margin: "3px 0", fontSize: 13, color: pv ? C.white : C.muted }}>
+                  {a.name}: {pv ? <span style={{ fontWeight: 700 }}>{pv.base} → <span style={{ color: C.teal }}>{pv.target}</span></span> : <span style={{ fontStyle: "italic" }}>no logged weight yet — bump applies once they log this movement with a weight</span>}
+                </p>
+              );
+            })}
+          </div>
+        )}
+        <Btn onClick={handleCreate} disabled={!canCreate || saving}>{saving ? "Creating…" : `Create bump${selected.length > 1 ? "s" : ""}`}</Btn>
+      </div>
+
+      <h3 style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", letterSpacing: ".06em", textTransform: "uppercase" }}>Pending bumps</h3>
+      {pending.length === 0 && <div style={{ textAlign: "center", padding: "36px 0", color: C.muted }}><p style={{ fontSize: 32, margin: "0 0 8px" }}>⬆</p><p style={{ margin: 0 }}>No pending bumps — create the first one above.</p></div>}
+      {pending.map((rule) => {
+        const a = athletes.find((x) => x.id === rule.athleteId);
+        const pv = a ? previewFor(rule.athleteId, rule.exerciseName, rule.pct) : null;
+        return (
+          <div key={rule.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+            <Avatar name={a?.name || "?"} size={38} />
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 14 }}>{a?.name || "Archived athlete"} <span style={{ color: C.muted, fontWeight: 400 }}>·</span> {rule.exerciseName}</p>
+              <p style={{ margin: "2px 0 0", fontSize: 12, color: C.muted }}>{pv ? <>{pv.base} → <span style={{ color: C.teal, fontWeight: 700 }}>{pv.target}</span></> : "awaiting first logged weight"}</p>
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.gold, background: `${C.gold}14`, border: `1px solid ${C.gold}33`, borderRadius: 20, padding: "3px 10px" }}>{rule.pct > 0 ? "+" : ""}{rule.pct}%</span>
+            <button onClick={() => onDelete(rule.id)} title="Remove bump" style={{ background: "none", border: "none", color: C.red, fontSize: 20, cursor: "pointer", padding: "0 4px", lineHeight: 1 }}>×</button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── SWIMMER PROFILE MODAL ────────────────────────────────────────────────────
 function SwimmerProfileModal({ athlete, onSave, onClose }) {
   const [school, setSchool] = useState(athlete.school || "");
@@ -895,7 +1258,7 @@ function LoginScreen({ athletes, onLogin, onCoachLogin }) {
 }
 
 // ─── ATHLETE APP ──────────────────────────────────────────────────────────────
-function AthleteApp({ athlete, workouts, logs, testScores, onLog, onUpdateAthlete, onLogout }) {
+function AthleteApp({ athlete, workouts, logs, testScores, progressions, onConsumeProgressions, onLog, onUpdateAthlete, onLogout }) {
   const myWorkouts = workouts.filter((w) => w.assignees?.includes(athlete.id)).sort((a, b) => b.date.localeCompare(a.date));
   const myLogs = logs.filter((l) => l.athleteId === athlete.id);
   const [logTarget, setLogTarget] = useState(null);
@@ -936,14 +1299,14 @@ function AthleteApp({ athlete, workouts, logs, testScores, onLog, onUpdateAthlet
           );
         })}
       </div>
-      {logTarget && <LogModal workout={logTarget.wkt} athleteId={athlete.id} existingLog={logTarget.existingLog} allLogs={logs} allWorkouts={workouts} onSave={async (d) => { await onLog(d); setLogTarget(null); }} onClose={() => setLogTarget(null)} />}
+      {logTarget && <LogModal workout={logTarget.wkt} athleteId={athlete.id} existingLog={logTarget.existingLog} allLogs={logs} allWorkouts={workouts} progressions={progressions} onConsumeProgressions={onConsumeProgressions} onSave={async (d) => { const ok = await onLog(d); if (ok !== false) setLogTarget(null); return ok; }} onClose={() => setLogTarget(null)} />}
       {showProfile && <SwimmerProfileModal athlete={athlete} onSave={onUpdateAthlete} onClose={() => setShowProfile(false)} />}
     </div>
   );
 }
 
 // ─── COACH APP ────────────────────────────────────────────────────────────────
-function CoachApp({ athletes, workouts, logs, testScores, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onSaveTestScore, onLogout }) {
+function CoachApp({ athletes, workouts, logs, testScores, progressions, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onSaveTestScore, onLogout }) {
   const [tab, setTab] = useState("workouts");
   const [showBuilder, setShowBuilder] = useState(false);
   const [editWkt, setEditWkt] = useState(null);
@@ -993,7 +1356,7 @@ function CoachApp({ athletes, workouts, logs, testScores, onSaveWorkout, onDelet
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ display: "flex", background: C.bg, borderRadius: 30, padding: 3 }}>
-              {["workouts","roster","logs","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize" }}>{t}</button>)}
+              {["workouts","roster","logs","bumps","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize" }}>{t}</button>)}
             </div>
             <button onClick={onLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit" }}>Log out</button>
           </div>
@@ -1171,6 +1534,10 @@ function CoachApp({ athletes, workouts, logs, testScores, onSaveWorkout, onDelet
           </div>
         )}
 
+        {tab === "bumps" && (
+          <ProgressionTab athletes={activeAthletes} progressions={progressions} logs={logs} workouts={workouts} onSave={onSaveProgressions} onDelete={onDeleteProgression} />
+        )}
+
         {tab === "progress" && (
           <ProgressDashboard athletes={athletes} testScores={testScores} onEnterScores={() => setShowTestEntry(true)} />
         )}
@@ -1192,20 +1559,23 @@ export default function App() {
   const [workouts, setWorkouts] = useState([]);
   const [logs, setLogs] = useState([]);
   const [testScores, setTestScores] = useState([]);
+  const [progressions, setProgressions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchAll() {
-      const [{ data: ath }, { data: wkts }, { data: lg }, { data: ts }] = await Promise.all([
+      const [{ data: ath }, { data: wkts }, { data: lg }, { data: ts }, { data: prog }] = await Promise.all([
         supabase.from("athletes").select("*"),
         supabase.from("workouts").select("*"),
         supabase.from("logs").select("*"),
         supabase.from("test_scores").select("*"),
+        supabase.from("progressions").select("*"),
       ]);
       setAthletes(ath || []);
       setWorkouts((wkts || []).map((w) => ({ ...w, blocks: typeof w.blocks === "string" ? JSON.parse(w.blocks) : w.blocks, assignees: typeof w.assignees === "string" ? JSON.parse(w.assignees) : w.assignees })));
       setLogs((lg || []).map((l) => ({ ...l, sets: typeof l.sets === "string" ? JSON.parse(l.sets) : l.sets, blockNotes: typeof l.blockNotes === "string" && l.blockNotes ? JSON.parse(l.blockNotes) : l.blockNotes })));
       setTestScores(ts || []);
+      setProgressions(prog || []);
       setLoading(false);
     }
     fetchAll();
@@ -1243,15 +1613,32 @@ export default function App() {
     if (error) {
       console.error("Log save error:", error);
       alert("Session failed to save: " + error.message);
-      return;
+      return false;
     }
     const { data } = await supabase.from("logs").select("*");
     setLogs((data || []).map((l) => ({ ...l, sets: typeof l.sets === "string" ? JSON.parse(l.sets) : l.sets, blockNotes: typeof l.blockNotes === "string" ? JSON.parse(l.blockNotes) : l.blockNotes })));
+    return true;
   }, [logs]);
 
   const saveTestScore = useCallback(async (score) => {
     await supabase.from("test_scores").insert(score);
     setTestScores((ts) => [...ts, score]);
+  }, []);
+
+  const saveProgressions = useCallback(async (rules) => {
+    // One pending rule per (athlete, movement): a new rule replaces any old one.
+    const key = (p) => p.athleteId + "|" + p.exerciseName.toLowerCase().trim();
+    const newKeys = new Set(rules.map(key));
+    const staleIds = progressions.filter((p) => newKeys.has(key(p))).map((p) => p.id);
+    if (staleIds.length) await supabase.from("progressions").delete().in("id", staleIds);
+    await supabase.from("progressions").insert(rules);
+    setProgressions((ps) => [...ps.filter((p) => !staleIds.includes(p.id)), ...rules]);
+  }, [progressions]);
+
+  const deleteProgressions = useCallback(async (ids) => {
+    if (!ids.length) return;
+    await supabase.from("progressions").delete().in("id", ids);
+    setProgressions((ps) => ps.filter((p) => !ids.includes(p.id)));
   }, []);
 
   const addAthlete = useCallback(async (athlete) => {
@@ -1277,6 +1664,6 @@ export default function App() {
   );
 
   if (!session) return <LoginScreen athletes={athletes} onLogin={(a) => setSession({ role: "athlete", athlete: a })} onCoachLogin={() => setSession({ role: "coach" })} />;
-  if (session.role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={updateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onSaveTestScore={saveTestScore} onLogout={() => setSession(null)} />;
-  return <AthleteApp athlete={session.athlete} workouts={workouts} logs={logs} testScores={testScores} onLog={saveLog} onUpdateAthlete={updateAthlete} onLogout={() => setSession(null)} />;
+  if (session.role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={updateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onSaveTestScore={saveTestScore} onLogout={() => setSession(null)} />;
+  return <AthleteApp athlete={session.athlete} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} onConsumeProgressions={deleteProgressions} onLog={saveLog} onUpdateAthlete={updateAthlete} onLogout={() => setSession(null)} />;
 }
