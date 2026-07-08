@@ -209,6 +209,55 @@ const TEST_METRICS = [
   { key: "rdl", label: "RDL", unit: "lbs", color: "#A78BFA" },
 ];
 
+// ─── MOVEMENT ASSESSMENT (Surge Strength test form) ──────────────────────────
+// Each screen scores 0/1/2; bilateral screens are scored per side (stored as
+// key + "L"/"R"). Shoulder Impingement is pass/fail only (2 or 0). A 0 always
+// means pain. Max total 24; minimum with no pain 14.
+const ASSESSMENT_MOVEMENTS = [
+  { key: "shoulderImpingement", label: "Shoulder Impingement", bilateral: true, options: [2, 0], guide: "No pain = 2 · Pain = 0" },
+  { key: "shoulderMobility", label: "Shoulder Mobility", bilateral: true, options: [2, 1, 0], guide: "Fists < 1.5 hand lengths apart = 2 · > 1.5 = 1 · Pain = 0" },
+  { key: "straightLegRaise", label: "Straight-leg Raise", bilateral: true, options: [2, 1, 0], guide: "Heel past knee = 2 · Heel not past knee = 1 · Pain = 0" },
+  { key: "overheadSquat", label: "Overhead Squat", bilateral: false, options: [2, 1, 0], guide: "Depth > 90°, knees aligned, heels flat, chest/arms up, balanced = 2 · else = 1 · Pain = 0" },
+  { key: "hipHinge", label: "Hip Hinge", bilateral: false, options: [2, 1, 0], guide: "Hinges > 45° = 2 · < 45° = 1 · Pain = 0" },
+  { key: "singleLegBalance", label: "Single-leg Balance", bilateral: true, options: [2, 1, 0], guide: "No loss of balance or ground touch = 2 · Loss or touch = 1 · Pain = 0" },
+  { key: "singleLegSquat", label: "Single-leg Squat", bilateral: true, options: [2, 1, 0], guide: "Squats > 45° = 2 · < 45° = 1 · Pain = 0" },
+];
+const ASSESSMENT_MAX = 24;
+const PERFORMANCE_TESTS = [
+  { key: "broadJump", label: "Broad Jump", unit: "inches" },
+  { key: "pullups", label: "Pull-ups", unit: "reps" },
+  { key: "flexedArmHang", label: "Flexed Arm Hang", unit: "seconds" },
+  { key: "squats", label: "Squats", unit: "reps" },
+  { key: "pushups", label: "Push-ups", unit: "reps" },
+  { key: "bridgeCombo", label: "Bridge Combo Test", unit: "score" },
+  { key: "gutPunch", label: "Gut Punch Breathing (self-test)", unit: "score" },
+];
+
+// The individual score cells for a movement map ({ keyL/keyR or key: 0|1|2 }).
+function assessmentCellKeys() {
+  return ASSESSMENT_MOVEMENTS.flatMap((m) => m.bilateral ? [m.key + "L", m.key + "R"] : [m.key]);
+}
+
+// Total, pain flag, and completeness for one assessment's movement scores.
+function computeMovementScore(movement) {
+  const vals = assessmentCellKeys().map((k) => movement?.[k]);
+  const entered = vals.filter((v) => v === 0 || v === 1 || v === 2);
+  return {
+    total: entered.reduce((s, v) => s + v, 0),
+    pain: entered.some((v) => v === 0),
+    complete: entered.length === vals.length,
+  };
+}
+
+// Movement level buckets used for grouping athletes. Any pain overrides the
+// score: those athletes need attention before level-based programming.
+function movementLevel(total, pain) {
+  if (pain) return { label: "Pain flagged", color: C.red };
+  if (total >= 22) return { label: "Level 3", color: C.teal };
+  if (total >= 18) return { label: "Level 2", color: C.gold };
+  return { label: "Level 1", color: "#A78BFA" };
+}
+
 const uid = () => Math.random().toString(36).slice(2, 9);
 const today = () => new Date().toISOString().slice(0, 10);
 const fmtDate = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", weekday: "short" });
@@ -282,7 +331,7 @@ function getProgressionFill(exerciseName, athleteId, progressions, allLogs, allW
   return { rule, base, target: roundLoad(base * (1 + rule.pct / 100)) };
 }
 
-export { roundLoad, getProgressionFill, getMoveTypes, getWorkoutMoveTypes, EXERCISE_CATEGORIES, EXERCISE_BANK, REQUIRED_MOVE_TYPES };
+export { roundLoad, getProgressionFill, getMoveTypes, getWorkoutMoveTypes, EXERCISE_CATEGORIES, EXERCISE_BANK, REQUIRED_MOVE_TYPES, ASSESSMENT_MOVEMENTS, ASSESSMENT_MAX, computeMovementScore, movementLevel };
 
 // Best numeric load an athlete has ever logged for an exercise name (excluding current workout).
 function getBestLoad(exerciseName, athleteId, allLogs, allWorkouts, currentWorkoutId) {
@@ -1192,6 +1241,216 @@ function ProgressionTab({ athletes, progressions, logs, workouts, onSave, onDele
   );
 }
 
+// ─── ASSESSMENT ENTRY MODAL ───────────────────────────────────────────────────
+function AssessmentModal({ athletes, onSave, onClose }) {
+  const [athleteId, setAthleteId] = useState(athletes[0]?.id || "");
+  const [date, setDate] = useState(today());
+  const [movement, setMovement] = useState({});
+  const [performance, setPerformance] = useState({});
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const { total, pain, complete } = computeMovementScore(movement);
+  const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "8px 11px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
+  const setCell = (k, v) => setMovement((m) => ({ ...m, [k]: v }));
+
+  const ScoreButtons = ({ cellKey, options }) => (
+    <div style={{ display: "flex", gap: 4 }}>
+      {options.map((o) => { const on = movement[cellKey] === o; return (
+        <button key={o} onClick={() => setCell(cellKey, on ? undefined : o)} style={{ width: 30, height: 28, borderRadius: 6, border: `1px solid ${on ? (o === 0 ? C.red : C.teal) : C.border}`, background: on ? (o === 0 ? `${C.red}22` : C.tealGlow) : "transparent", color: on ? (o === 0 ? C.red : C.teal) : C.mutedUp, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>{o}</button>
+      ); })}
+    </div>
+  );
+
+  const handleSave = async () => {
+    if (!athleteId) return;
+    setSaving(true);
+    await onSave({ id: uid(), athleteId, date, movement, performance, notes, createdAt: Date.now() });
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 620, padding: 26, boxShadow: `0 0 60px ${C.tealGlow}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <h2 style={{ margin: 0, color: C.white, fontSize: 19, fontWeight: 800 }}>Movement assessment</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 150px", gap: 12, marginBottom: 18 }}>
+          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>ATHLETE</label>
+            <select value={athleteId} onChange={(e) => setAthleteId(e.target.value)} style={inp}>{athletes.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
+          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>DATE</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp} /></div>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <label style={{ fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: ".05em" }}>Movement screens</label>
+          <span style={{ fontSize: 13, fontWeight: 800, color: pain ? C.red : complete ? C.teal : C.muted }}>{total}/{ASSESSMENT_MAX}{pain ? " · pain" : ""}{!complete ? " · incomplete" : ""}</span>
+        </div>
+        {ASSESSMENT_MOVEMENTS.map((m) => (
+          <div key={m.key} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "9px 12px", marginBottom: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ color: C.white, fontWeight: 700, fontSize: 13 }}>{m.label}</span>
+              {m.bilateral ? (
+                <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>L</span><ScoreButtons cellKey={m.key + "L"} options={m.options} /></div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>R</span><ScoreButtons cellKey={m.key + "R"} options={m.options} /></div>
+                </div>
+              ) : <ScoreButtons cellKey={m.key} options={m.options} />}
+            </div>
+            <p style={{ margin: "5px 0 0", fontSize: 11, color: C.muted }}>{m.guide}</p>
+          </div>
+        ))}
+
+        <label style={{ fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: ".05em", display: "block", margin: "16px 0 8px" }}>Performance tests</label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+          {PERFORMANCE_TESTS.map((t) => (
+            <div key={t.key} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ flex: 1, color: C.white, fontSize: 13 }}>{t.label}</span>
+              <input value={performance[t.key] || ""} onChange={(e) => setPerformance((p) => ({ ...p, [t.key]: e.target.value }))} placeholder={t.unit} style={{ ...inp, width: 82, padding: "5px 8px", fontSize: 13, textAlign: "center" }} />
+            </div>
+          ))}
+        </div>
+
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes — what stood out, follow-ups…" rows={2} style={{ ...inp, resize: "vertical", marginBottom: 16 }} />
+        <div style={{ display: "flex", gap: 10 }}>
+          <Btn variant="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Btn>
+          <Btn onClick={handleSave} disabled={saving || !athleteId} style={{ flex: 1 }}>{saving ? "Saving…" : "Save assessment"}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ASSESSMENT TAB ───────────────────────────────────────────────────────────
+function AssessmentTab({ athletes, assessments, onSaveAssessment, onDeleteAssessment }) {
+  const [showEntry, setShowEntry] = useState(false);
+  const [detail, setDetail] = useState(null); // athlete whose history is open
+
+  // Latest assessment per athlete, plus previous for the trend arrow.
+  const byAthlete = {};
+  [...assessments].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)).forEach((as) => {
+    (byAthlete[as.athleteId] = byAthlete[as.athleteId] || []).push(as);
+  });
+
+  const rows = athletes.map((a) => {
+    const hist = byAthlete[a.id] || [];
+    const latest = hist[hist.length - 1];
+    const prev = hist[hist.length - 2];
+    const score = latest ? computeMovementScore(latest.movement) : null;
+    const prevScore = prev ? computeMovementScore(prev.movement) : null;
+    const level = score ? movementLevel(score.total, score.pain) : null;
+    return { athlete: a, latest, hist, score, prevScore, level };
+  });
+
+  const buckets = [
+    { label: "Pain flagged", color: C.red, test: (r) => r.score?.pain, note: "Address before loading — program mobility / see guide notes" },
+    { label: "Level 1", color: "#A78BFA", test: (r) => r.level?.label === "Level 1", note: "Most mobility & function work (score ≤ 17)" },
+    { label: "Level 2", color: C.gold, test: (r) => r.level?.label === "Level 2", note: "Score 18–21" },
+    { label: "Level 3", color: C.teal, test: (r) => r.level?.label === "Level 3", note: "Score 22–24 — ready to load" },
+    { label: "Not assessed", color: C.muted, test: (r) => !r.latest, note: "" },
+  ];
+
+  const painCells = (movement) => ASSESSMENT_MOVEMENTS.flatMap((m) => (m.bilateral ? [["L", m.key + "L"], ["R", m.key + "R"]] : [["", m.key]])
+    .filter(([, k]) => movement?.[k] === 0).map(([side]) => m.label + (side ? ` (${side})` : "")));
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div><h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Movement assessments</h1>
+          <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>{assessments.length} assessment{assessments.length !== 1 ? "s" : ""} · grouped by movement level to guide mobility & function work</p></div>
+        <Btn onClick={() => setShowEntry(true)}>+ New assessment</Btn>
+      </div>
+
+      {buckets.map((bucket) => {
+        const bucketRows = rows.filter((r) => bucket.test(r) && (bucket.label !== "Not assessed" || true));
+        if (bucketRows.length === 0) return null;
+        return (
+          <div key={bucket.label} style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
+              <h3 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: bucket.color, textTransform: "uppercase", letterSpacing: ".05em" }}>{bucket.label} ({bucketRows.length})</h3>
+              {bucket.note && <span style={{ fontSize: 11, color: C.muted }}>{bucket.note}</span>}
+            </div>
+            {bucketRows.map(({ athlete, latest, score, prevScore, hist }) => {
+              const diff = score && prevScore ? score.total - prevScore.total : null;
+              const pains = latest ? painCells(latest.movement) : [];
+              return (
+                <div key={athlete.id} onClick={() => latest && setDetail(athlete)} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "11px 16px", marginBottom: 6, display: "flex", alignItems: "center", gap: 12, cursor: latest ? "pointer" : "default" }}>
+                  <Avatar name={athlete.name} size={36} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 14 }}>{athlete.name}</p>
+                    <p style={{ margin: "2px 0 0", fontSize: 11, color: C.muted }}>
+                      {latest ? <>{fmtDate(latest.date)} · {hist.length} assessment{hist.length !== 1 ? "s" : ""}{!score.complete && <span style={{ color: C.gold }}> · incomplete</span>}</> : athlete.event || ""}
+                    </p>
+                    {pains.length > 0 && <p style={{ margin: "3px 0 0", fontSize: 11, color: C.red }}>Pain: {pains.join(", ")}</p>}
+                  </div>
+                  {latest && <>
+                    {diff !== null && diff !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: diff > 0 ? C.teal : C.red }}>{diff > 0 ? "▲" : "▼"}{Math.abs(diff)}</span>}
+                    <span style={{ fontSize: 18, fontWeight: 900, color: C.white }}>{score.total}<span style={{ fontSize: 11, color: C.muted }}>/{ASSESSMENT_MAX}</span></span>
+                  </>}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+
+      {showEntry && <AssessmentModal athletes={athletes} onSave={async (a) => { await onSaveAssessment(a); setShowEntry(false); }} onClose={() => setShowEntry(false)} />}
+      {detail && <AssessmentHistoryModal athlete={detail} assessments={(byAthlete[detail.id] || []).slice().reverse()} onDelete={onDeleteAssessment} onClose={() => setDetail(null)} />}
+    </div>
+  );
+}
+
+// ─── ASSESSMENT HISTORY MODAL ─────────────────────────────────────────────────
+function AssessmentHistoryModal({ athlete, assessments, onDelete, onClose }) {
+  const cellVal = (v) => v === 0 || v === 1 || v === 2 ? v : "—";
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 680, padding: 26 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}><Avatar name={athlete.name} size={40} />
+            <div><h2 style={{ margin: 0, color: C.white, fontSize: 18, fontWeight: 800 }}>{athlete.name}</h2><p style={{ margin: "2px 0 0", color: C.muted, fontSize: 12 }}>Assessment history</p></div></div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
+        </div>
+        {assessments.map((as) => {
+          const { total, pain, complete } = computeMovementScore(as.movement);
+          const level = movementLevel(total, pain);
+          return (
+            <div key={as.id} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px 16px", marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 9, flexWrap: "wrap", gap: 6 }}>
+                <span style={{ color: C.white, fontWeight: 800, fontSize: 14 }}>{fmtDate(as.date)}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: level.color, background: `${level.color}18`, border: `1px solid ${level.color}44`, borderRadius: 20, padding: "2px 10px" }}>{level.label}</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: C.white }}>{total}<span style={{ fontSize: 11, color: C.muted }}>/{ASSESSMENT_MAX}</span></span>
+                  {!complete && <span style={{ fontSize: 11, color: C.gold }}>incomplete</span>}
+                  <button onClick={() => { if (window.confirm("Delete this assessment?")) onDelete(as.id); }} style={{ background: "none", border: "none", color: C.red, fontSize: 17, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}>×</button>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 5, marginBottom: 8 }}>
+                {ASSESSMENT_MOVEMENTS.map((m) => (
+                  <div key={m.key} style={{ background: C.surfaceUp, borderRadius: 7, padding: "5px 9px" }}>
+                    <p style={{ margin: 0, fontSize: 10, color: C.muted }}>{m.label}</p>
+                    <p style={{ margin: "1px 0 0", fontSize: 13, fontWeight: 800, color: C.white }}>
+                      {m.bilateral ? <>L {cellVal(as.movement?.[m.key + "L"])} · R {cellVal(as.movement?.[m.key + "R"])}</> : cellVal(as.movement?.[m.key])}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {PERFORMANCE_TESTS.some((t) => as.performance?.[t.key]) && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
+                  {PERFORMANCE_TESTS.filter((t) => as.performance?.[t.key]).map((t) => (
+                    <span key={t.key} style={{ fontSize: 11, color: C.mutedUp, background: C.surfaceUp, borderRadius: 4, padding: "2px 8px" }}>{t.label}: <strong style={{ color: C.white }}>{as.performance[t.key]}</strong> {t.unit}</span>
+                  ))}
+                </div>
+              )}
+              {as.notes && <p style={{ margin: "4px 0 0", fontSize: 12, color: C.teal, fontStyle: "italic" }}>"{as.notes}"</p>}
+            </div>
+          );
+        })}
+        <div style={{ display: "flex", justifyContent: "flex-end" }}><Btn variant="ghost" onClick={onClose}>Close</Btn></div>
+      </div>
+    </div>
+  );
+}
+
 // ─── SWIMMER PROFILE MODAL ────────────────────────────────────────────────────
 function SwimmerProfileModal({ athlete, onSave, onClose }) {
   const [school, setSchool] = useState(athlete.school || "");
@@ -1306,7 +1565,7 @@ function AthleteApp({ athlete, workouts, logs, testScores, progressions, onConsu
 }
 
 // ─── COACH APP ────────────────────────────────────────────────────────────────
-function CoachApp({ athletes, workouts, logs, testScores, progressions, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onSaveTestScore, onLogout }) {
+function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onSaveTestScore, onLogout }) {
   const [tab, setTab] = useState("workouts");
   const [showBuilder, setShowBuilder] = useState(false);
   const [editWkt, setEditWkt] = useState(null);
@@ -1356,7 +1615,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, onSavePr
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ display: "flex", background: C.bg, borderRadius: 30, padding: 3 }}>
-              {["workouts","roster","logs","bumps","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize" }}>{t}</button>)}
+              {["workouts","roster","logs","bumps","assess","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize" }}>{t}</button>)}
             </div>
             <button onClick={onLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit" }}>Log out</button>
           </div>
@@ -1538,6 +1797,10 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, onSavePr
           <ProgressionTab athletes={activeAthletes} progressions={progressions} logs={logs} workouts={workouts} onSave={onSaveProgressions} onDelete={onDeleteProgression} />
         )}
 
+        {tab === "assess" && (
+          <AssessmentTab athletes={activeAthletes} assessments={assessments} onSaveAssessment={onSaveAssessment} onDeleteAssessment={onDeleteAssessment} />
+        )}
+
         {tab === "progress" && (
           <ProgressDashboard athletes={athletes} testScores={testScores} onEnterScores={() => setShowTestEntry(true)} />
         )}
@@ -1560,22 +1823,25 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [testScores, setTestScores] = useState([]);
   const [progressions, setProgressions] = useState([]);
+  const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchAll() {
-      const [{ data: ath }, { data: wkts }, { data: lg }, { data: ts }, { data: prog }] = await Promise.all([
+      const [{ data: ath }, { data: wkts }, { data: lg }, { data: ts }, { data: prog }, { data: assess }] = await Promise.all([
         supabase.from("athletes").select("*"),
         supabase.from("workouts").select("*"),
         supabase.from("logs").select("*"),
         supabase.from("test_scores").select("*"),
         supabase.from("progressions").select("*"),
+        supabase.from("assessments").select("*"),
       ]);
       setAthletes(ath || []);
       setWorkouts((wkts || []).map((w) => ({ ...w, blocks: typeof w.blocks === "string" ? JSON.parse(w.blocks) : w.blocks, assignees: typeof w.assignees === "string" ? JSON.parse(w.assignees) : w.assignees })));
       setLogs((lg || []).map((l) => ({ ...l, sets: typeof l.sets === "string" ? JSON.parse(l.sets) : l.sets, blockNotes: typeof l.blockNotes === "string" && l.blockNotes ? JSON.parse(l.blockNotes) : l.blockNotes })));
       setTestScores(ts || []);
       setProgressions(prog || []);
+      setAssessments((assess || []).map((a) => ({ ...a, movement: typeof a.movement === "string" ? JSON.parse(a.movement) : a.movement, performance: typeof a.performance === "string" && a.performance ? JSON.parse(a.performance) : a.performance })));
       setLoading(false);
     }
     fetchAll();
@@ -1641,6 +1907,17 @@ export default function App() {
     setProgressions((ps) => ps.filter((p) => !ids.includes(p.id)));
   }, []);
 
+  const saveAssessment = useCallback(async (assessment) => {
+    const payload = { ...assessment, movement: JSON.stringify(assessment.movement), performance: JSON.stringify(assessment.performance) };
+    await supabase.from("assessments").insert(payload);
+    setAssessments((as) => [...as, assessment]);
+  }, []);
+
+  const deleteAssessment = useCallback(async (id) => {
+    await supabase.from("assessments").delete().eq("id", id);
+    setAssessments((as) => as.filter((a) => a.id !== id));
+  }, []);
+
   const addAthlete = useCallback(async (athlete) => {
     await supabase.from("athletes").insert(athlete);
     setAthletes((as) => [...as, athlete]);
@@ -1664,6 +1941,6 @@ export default function App() {
   );
 
   if (!session) return <LoginScreen athletes={athletes} onLogin={(a) => setSession({ role: "athlete", athlete: a })} onCoachLogin={() => setSession({ role: "coach" })} />;
-  if (session.role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={updateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onSaveTestScore={saveTestScore} onLogout={() => setSession(null)} />;
+  if (session.role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={updateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onSaveTestScore={saveTestScore} onLogout={() => setSession(null)} />;
   return <AthleteApp athlete={session.athlete} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} onConsumeProgressions={deleteProgressions} onLog={saveLog} onUpdateAthlete={updateAthlete} onLogout={() => setSession(null)} />;
 }

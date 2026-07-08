@@ -11,6 +11,7 @@ jest.mock('@supabase/supabase-js', () => ({
 const {
   default: App, roundLoad, getProgressionFill,
   getMoveTypes, getWorkoutMoveTypes, EXERCISE_CATEGORIES, EXERCISE_BANK, REQUIRED_MOVE_TYPES,
+  ASSESSMENT_MOVEMENTS, ASSESSMENT_MAX, computeMovementScore, movementLevel,
 } = require('./App');
 
 test('shows the loading screen, then the login screen', async () => {
@@ -85,5 +86,45 @@ describe('exercise library move types', () => {
     // Push-up is also a FUNCTION move in the source PDFs
     expect([...covered].sort()).toEqual(['BRACE', 'FUNCTION', 'HINGE', 'PUSH', 'SQUAT']);
     expect(REQUIRED_MOVE_TYPES.filter((t) => covered.has(t)).length).toBe(4); // PULL missing
+  });
+});
+
+describe('movement assessment scoring', () => {
+  // Perfect scores on every screen: 5 bilateral × 2 sides × 2 + 2 single × 2 = 24.
+  const perfect = {};
+  ASSESSMENT_MOVEMENTS.forEach((m) => {
+    if (m.bilateral) { perfect[m.key + 'L'] = 2; perfect[m.key + 'R'] = 2; }
+    else perfect[m.key] = 2;
+  });
+
+  test('perfect form scores the maximum of 24', () => {
+    expect(computeMovementScore(perfect)).toEqual({ total: ASSESSMENT_MAX, pain: false, complete: true });
+  });
+
+  test('minimum with no pain is 14 (impingement has no middle score)', () => {
+    const min = {};
+    ASSESSMENT_MOVEMENTS.forEach((m) => {
+      const low = Math.min(...m.options.filter((o) => o !== 0)); // lowest no-pain option
+      if (m.bilateral) { min[m.key + 'L'] = low; min[m.key + 'R'] = low; }
+      else min[m.key] = low;
+    });
+    expect(computeMovementScore(min)).toEqual({ total: 14, pain: false, complete: true });
+  });
+
+  test('a zero flags pain and unentered cells mark incomplete', () => {
+    const withPain = { ...perfect, shoulderImpingementL: 0 };
+    expect(computeMovementScore(withPain)).toEqual({ total: 22, pain: true, complete: true });
+    const { complete, total } = computeMovementScore({ overheadSquat: 2 });
+    expect(complete).toBe(false);
+    expect(total).toBe(2);
+  });
+
+  test('movement levels bucket by score with pain overriding', () => {
+    expect(movementLevel(24, false).label).toBe('Level 3');
+    expect(movementLevel(22, false).label).toBe('Level 3');
+    expect(movementLevel(21, false).label).toBe('Level 2');
+    expect(movementLevel(18, false).label).toBe('Level 2');
+    expect(movementLevel(17, false).label).toBe('Level 1');
+    expect(movementLevel(23, true).label).toBe('Pain flagged');
   });
 });
