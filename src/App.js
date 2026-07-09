@@ -1615,7 +1615,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ display: "flex", background: C.bg, borderRadius: 30, padding: 3 }}>
-              {["workouts","roster","logs","bumps","assess","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize" }}>{t}</button>)}
+              {["workouts","roster","logs","bumps","Assessments","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize" }}>{t}</button>)}
             </div>
             <button onClick={onLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit" }}>Log out</button>
           </div>
@@ -1797,7 +1797,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
           <ProgressionTab athletes={activeAthletes} progressions={progressions} logs={logs} workouts={workouts} onSave={onSaveProgressions} onDelete={onDeleteProgression} />
         )}
 
-        {tab === "assess" && (
+        {tab === "Assessments" && (
           <AssessmentTab athletes={activeAthletes} assessments={assessments} onSaveAssessment={onSaveAssessment} onDeleteAssessment={onDeleteAssessment} />
         )}
 
