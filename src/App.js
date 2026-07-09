@@ -1680,7 +1680,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
                     <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
                       <Btn variant="ghost" small onClick={() => { setEditWkt(wkt); setShowBuilder(true); }}>Edit</Btn>
                       <Btn variant="ghost" small onClick={() => { const copy = { ...JSON.parse(JSON.stringify(wkt)), id: uid(), title: wkt.title + " — Copy", date: today(), assignees: [] }; setEditWkt(copy); setShowBuilder(true); }}>Duplicate</Btn>
-                      <button onClick={() => onDeleteWorkout(wkt.id)} style={{ background: "none", border: "none", color: C.red, fontSize: 20, cursor: "pointer", padding: "0 4px" }}>×</button>
+                      <button onClick={() => { if (window.confirm(`Delete "${wkt.title}"? Athletes' logged sessions for it will lose their workout details.`)) onDeleteWorkout(wkt.id); }} style={{ background: "none", border: "none", color: C.red, fontSize: 20, cursor: "pointer", padding: "0 4px" }}>×</button>
                     </div>
                   </div>
                 </div>
