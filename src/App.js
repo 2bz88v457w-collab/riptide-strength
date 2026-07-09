@@ -258,6 +258,20 @@ function movementLevel(total, pain) {
   return { label: "Level 1", color: "#A78BFA" };
 }
 
+// True below the given viewport width; drives phone-friendly layouts (inline
+// styles everywhere, so no CSS media queries to lean on).
+function useIsNarrow(bp = 640) {
+  const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && window.innerWidth <= bp);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${bp}px)`);
+    const fn = () => setNarrow(mq.matches);
+    fn();
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, [bp]);
+  return narrow;
+}
+
 const uid = () => Math.random().toString(36).slice(2, 9);
 const today = () => new Date().toISOString().slice(0, 10);
 const fmtDate = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", weekday: "short" });
@@ -424,28 +438,38 @@ function StatCard({ label, value, accent }) {
 
 // ─── EXERCISE ROW ─────────────────────────────────────────────────────────────
 function ExRow({ ex, label, blockExercises, onChange, onRemove, onPair, onUnpair, onSwap }) {
+  const isNarrow = useIsNarrow();
   const f = (k) => (e) => onChange({ ...ex, [k]: e.target.value });
   const inp = (w) => ({ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 7, color: C.white, padding: "6px 8px", fontSize: 13, width: w, fontFamily: "inherit", boxSizing: "border-box" });
   const isPaired = !!ex.pairId;
   const canPair = blockExercises.filter((e) => e.id !== ex.id && !e.pairId).length > 0;
   const isBW = ex.load?.trim().toUpperCase() === "BW";
   const toggleBW = () => onChange({ ...ex, load: isBW ? "" : "BW" });
+  const nameInput = <input list="exbank" value={ex.name} onChange={f("name")} placeholder="Exercise" style={{ ...inp("100%"), minWidth: 0, flex: 1 }} />;
+  const setsInput = <input value={ex.sets} onChange={f("sets")} placeholder="Sets" inputMode="numeric" style={inp(isNarrow ? 52 : "100%")} />;
+  const repsInput = <input value={ex.reps} onChange={f("reps")} placeholder="Reps" style={inp(isNarrow ? 60 : "100%")} />;
+  const loadInput = <input value={ex.load} onChange={f("load")} placeholder="Load" disabled={isBW} style={{ ...inp("100%"), opacity: isBW ? 0.5 : 1, ...(isNarrow ? { flex: 1, minWidth: 0 } : {}) }} />;
+  const bwBtn = <button onClick={toggleBW} title="Bodyweight only" style={{ background: isBW ? C.teal : "none", border: `1px solid ${isBW ? C.teal : C.border}`, borderRadius: 6, color: isBW ? C.bg : C.mutedUp, fontSize: 10, fontWeight: 800, padding: isNarrow ? "7px 8px" : "6px 2px", cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>BW</button>;
+  const noteInput = <input value={ex.note} onChange={f("note")} placeholder="Coaching cue" style={{ ...inp("100%"), ...(isNarrow ? { flex: 1, minWidth: 0 } : {}) }} />;
+  const swapBtn = <button onClick={onSwap} style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 6, color: C.mutedUp, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>⇄ Swap</button>;
+  const pairBtn = isPaired ? <button onClick={onUnpair} style={{ background: "none", border: `1px solid ${C.gold}33`, borderRadius: 6, color: C.gold, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>Unpair</button>
+    : canPair ? <button onClick={onPair} style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>+ Super</button>
+    : <div />;
+  const removeBtn = <button onClick={onRemove} style={{ background: "none", border: "none", color: C.red, cursor: "pointer", fontSize: 18, padding: 0, lineHeight: 1, flexShrink: 0 }}>×</button>;
   return (
-    <div style={{ marginBottom: 6 }}>
+    <div style={{ marginBottom: isNarrow ? 12 : 6 }}>
       {label && <div style={{ display: "inline-flex", alignItems: "center", gap: 5, marginBottom: 4 }}><div style={{ width: 20, height: 20, borderRadius: 5, background: C.gold, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 10, fontWeight: 900, color: C.bg }}>{label}</span></div><span style={{ fontSize: 10, color: C.gold, fontWeight: 700 }}>SUPERSET</span></div>}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 52px 60px 46px 34px 1fr 70px 70px 24px", gap: 5, alignItems: "center" }}>
-        <input list="exbank" value={ex.name} onChange={f("name")} placeholder="Exercise" style={inp("100%")} />
-        <input value={ex.sets} onChange={f("sets")} placeholder="Sets" style={inp("100%")} />
-        <input value={ex.reps} onChange={f("reps")} placeholder="Reps" style={inp("100%")} />
-        <input value={ex.load} onChange={f("load")} placeholder="Load" disabled={isBW} style={{ ...inp("100%"), opacity: isBW ? 0.5 : 1 }} />
-        <button onClick={toggleBW} title="Bodyweight only" style={{ background: isBW ? C.teal : "none", border: `1px solid ${isBW ? C.teal : C.border}`, borderRadius: 6, color: isBW ? C.bg : C.mutedUp, fontSize: 10, fontWeight: 800, padding: "6px 2px", cursor: "pointer", fontFamily: "inherit" }}>BW</button>
-        <input value={ex.note} onChange={f("note")} placeholder="Coaching cue" style={inp("100%")} />
-        <button onClick={onSwap} style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 6, color: C.mutedUp, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit" }}>⇄ Swap</button>
-        {isPaired ? <button onClick={onUnpair} style={{ background: "none", border: `1px solid ${C.gold}33`, borderRadius: 6, color: C.gold, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit" }}>Unpair</button>
-          : canPair ? <button onClick={onPair} style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 11, padding: "4px 6px", cursor: "pointer", fontFamily: "inherit" }}>+ Super</button>
-          : <div />}
-        <button onClick={onRemove} style={{ background: "none", border: "none", color: C.red, cursor: "pointer", fontSize: 18, padding: 0, lineHeight: 1 }}>×</button>
-      </div>
+      {isNarrow ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <div style={{ display: "flex", gap: 5, alignItems: "center" }}>{nameInput}{removeBtn}</div>
+          <div style={{ display: "flex", gap: 5, alignItems: "center" }}>{setsInput}{repsInput}{loadInput}{bwBtn}</div>
+          <div style={{ display: "flex", gap: 5, alignItems: "center" }}>{noteInput}{swapBtn}{pairBtn}</div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 52px 60px 46px 34px 1fr 70px 70px 24px", gap: 5, alignItems: "center" }}>
+          {nameInput}{setsInput}{repsInput}{loadInput}{bwBtn}{noteInput}{swapBtn}{pairBtn}{removeBtn}
+        </div>
+      )}
     </div>
   );
 }
@@ -487,6 +511,7 @@ function PairPicker({ exercise, blockExercises, onPick, onClose }) {
 
 // ─── WORKOUT BUILDER ──────────────────────────────────────────────────────────
 function BuilderModal({ athletes, onSave, onClose, editWkt }) {
+  const isNarrow = useIsNarrow();
   const [title, setTitle] = useState(editWkt?.title || "");
   const [date, setDate] = useState(editWkt?.date || today());
   const [assignees, setAssignees] = useState(editWkt?.assignees || []);
@@ -540,12 +565,12 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
-      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 900, padding: 28, boxShadow: `0 0 60px ${C.tealGlow}` }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 900, padding: isNarrow ? 16 : 28, boxShadow: `0 0 60px ${C.tealGlow}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
           <h2 style={{ margin: 0, color: C.white, fontSize: 20, fontWeight: 800 }}>{editWkt ? "Edit workout" : "New workout"}</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 12, marginBottom: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isNarrow ? "1fr" : "1fr 160px", gap: 12, marginBottom: 18 }}>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>TITLE</label><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Strength Power – Week 5" style={inp} /></div>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>DATE</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp} /></div>
         </div>
@@ -554,10 +579,10 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
             <label style={{ fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: ".05em" }}>Assign to</label>
             <span style={{ fontSize: 12, color: assignees.length > 0 ? C.teal : C.muted, fontWeight: 700 }}>{assignees.length} athlete{assignees.length !== 1 ? "s" : ""}</span>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ width: 160, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden", flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ width: isNarrow ? "100%" : 160, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden", flexShrink: 0 }}>
               <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Groups</div>
-              <div style={{ padding: 6 }}>
+              <div style={{ padding: 6, display: isNarrow ? "grid" : "block", gridTemplateColumns: isNarrow ? "1fr 1fr" : undefined, gap: isNarrow ? 3 : undefined }}>
                 {poolGroups.map((g) => { const gIds = athletes.filter((a) => a.event === g).map((a) => a.id); const allOn = gIds.length > 0 && gIds.every((id) => assignees.includes(id)); const someOn = gIds.some((id) => assignees.includes(id)); return (
                   <button key={g} onClick={() => selectGroup(g)} style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: allOn ? C.tealGlow : "transparent", border: `1px solid ${allOn || someOn ? C.teal : "transparent"}`, borderRadius: 7, padding: "6px 8px", cursor: "pointer", marginBottom: 3, fontFamily: "inherit" }}>
                     <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${allOn ? C.teal : someOn ? C.teal : C.muted}`, background: allOn ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{allOn && <span style={{ color: C.bg, fontSize: 9, fontWeight: 900 }}>✓</span>}{someOn && !allOn && <span style={{ color: C.teal, fontSize: 11, lineHeight: 1 }}>–</span>}</div>
@@ -576,10 +601,10 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
                 ); })}
               </div>
             </div>
-            <div style={{ flex: 1, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+            <div style={{ flex: 1, minWidth: isNarrow ? "100%" : 260, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
               <div style={{ padding: "6px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", whiteSpace: "nowrap" }}>Athletes</span>
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 6, color: C.white, padding: "3px 8px", fontSize: 12, fontFamily: "inherit", flex: 1 }} />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 6, color: C.white, padding: "3px 8px", fontSize: 12, fontFamily: "inherit", flex: 1, minWidth: 0 }} />
               </div>
               <div style={{ overflowY: "auto", maxHeight: 200, padding: 6, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
                 {filteredAthletes.map((a) => { const on = assignees.includes(a.id); return (
@@ -614,9 +639,9 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
             </div>
           );
         })()}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 52px 60px 46px 34px 1fr 70px 70px 24px", gap: 5, marginBottom: 6 }}>
+        {!isNarrow && <div style={{ display: "grid", gridTemplateColumns: "1fr 52px 60px 46px 34px 1fr 70px 70px 24px", gap: 5, marginBottom: 6 }}>
           {["Exercise","Sets","Reps","Load","BW","Coaching cue","","",""].map((h, i) => <span key={i} style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>{h}</span>)}
-        </div>
+        </div>}
         {blocks.map((block, bi) => {
           const labels = getSupersetLabels(block.exercises);
           const rendered = []; const seen = new Set();
@@ -1109,6 +1134,7 @@ function ProgressDashboard({ athletes, testScores, onEnterScores }) {
 
 // ─── PROGRESSION (BUMPS) TAB ──────────────────────────────────────────────────
 function ProgressionTab({ athletes, progressions, logs, workouts, onSave, onDelete }) {
+  const isNarrow = useIsNarrow();
   const [movement, setMovement] = useState("");
   const [pct, setPct] = useState("5");
   const [selected, setSelected] = useState([]);
@@ -1165,10 +1191,10 @@ function ProgressionTab({ athletes, progressions, logs, workouts, onSave, onDele
           <label style={{ fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: ".05em" }}>Apply to</label>
           <span style={{ fontSize: 12, color: selected.length > 0 ? C.teal : C.muted, fontWeight: 700 }}>{selected.length} athlete{selected.length !== 1 ? "s" : ""}</span>
         </div>
-        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-          <div style={{ width: 160, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden", flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+          <div style={{ width: isNarrow ? "100%" : 160, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden", flexShrink: 0 }}>
             <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Groups</div>
-            <div style={{ padding: 6 }}>
+            <div style={{ padding: 6, display: isNarrow ? "grid" : "block", gridTemplateColumns: isNarrow ? "1fr 1fr" : undefined, gap: isNarrow ? 3 : undefined }}>
               {poolGroups.map((g) => { const gIds = athletes.filter((a) => a.event === g).map((a) => a.id); const allOn = gIds.length > 0 && gIds.every((id) => selected.includes(id)); const someOn = gIds.some((id) => selected.includes(id)); return (
                 <button key={g} onClick={() => selectGroup(g)} style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: allOn ? C.tealGlow : "transparent", border: `1px solid ${allOn || someOn ? C.teal : "transparent"}`, borderRadius: 7, padding: "6px 8px", cursor: "pointer", marginBottom: 3, fontFamily: "inherit" }}>
                   <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${allOn ? C.teal : someOn ? C.teal : C.muted}`, background: allOn ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{allOn && <span style={{ color: C.bg, fontSize: 9, fontWeight: 900 }}>✓</span>}{someOn && !allOn && <span style={{ color: C.teal, fontSize: 11, lineHeight: 1 }}>–</span>}</div>
@@ -1187,7 +1213,7 @@ function ProgressionTab({ athletes, progressions, logs, workouts, onSave, onDele
               ); })}
             </div>
           </div>
-          <div style={{ flex: 1, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          <div style={{ flex: 1, minWidth: isNarrow ? "100%" : 260, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
             <div style={{ padding: "6px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", whiteSpace: "nowrap" }}>Athletes</span>
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 6, color: C.white, padding: "3px 8px", fontSize: 12, fontFamily: "inherit", flex: 1 }} />
@@ -1243,6 +1269,7 @@ function ProgressionTab({ athletes, progressions, logs, workouts, onSave, onDele
 
 // ─── ASSESSMENT ENTRY MODAL ───────────────────────────────────────────────────
 function AssessmentModal({ athletes, onSave, onClose }) {
+  const isNarrow = useIsNarrow();
   const [athleteId, setAthleteId] = useState(athletes[0]?.id || "");
   const [date, setDate] = useState(today());
   const [movement, setMovement] = useState({});
@@ -1270,12 +1297,12 @@ function AssessmentModal({ athletes, onSave, onClose }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
-      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 620, padding: 26, boxShadow: `0 0 60px ${C.tealGlow}` }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 620, padding: isNarrow ? 16 : 26, boxShadow: `0 0 60px ${C.tealGlow}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <h2 style={{ margin: 0, color: C.white, fontSize: 19, fontWeight: 800 }}>Movement assessment</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 150px", gap: 12, marginBottom: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isNarrow ? "1fr" : "1fr 150px", gap: 12, marginBottom: 18 }}>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>ATHLETE</label>
             <select value={athleteId} onChange={(e) => setAthleteId(e.target.value)} style={inp}>{athletes.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>DATE</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp} /></div>
@@ -1301,7 +1328,7 @@ function AssessmentModal({ athletes, onSave, onClose }) {
         ))}
 
         <label style={{ fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: ".05em", display: "block", margin: "16px 0 8px" }}>Performance tests</label>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isNarrow ? "1fr" : "1fr 1fr", gap: 8, marginBottom: 16 }}>
           {PERFORMANCE_TESTS.map((t) => (
             <div key={t.key} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ flex: 1, color: C.white, fontSize: 13 }}>{t.label}</span>
@@ -1607,17 +1634,17 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
   return (
     <div style={{ minHeight: "100vh", background: C.bg }}>
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "0 20px" }}>
-        <div style={{ maxWidth: 900, margin: "0 auto", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", minHeight: 58, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "4px 10px", padding: "8px 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 7, background: C.teal, display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={C.bg} strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg></div>
-            <span style={{ fontWeight: 900, fontSize: 16, color: C.white }}>Riptide <span style={{ color: C.teal }}>Strength</span></span>
+            <div style={{ width: 30, height: 30, borderRadius: 7, background: C.teal, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={C.bg} strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg></div>
+            <span style={{ fontWeight: 900, fontSize: 16, color: C.white, whiteSpace: "nowrap" }}>Riptide <span style={{ color: C.teal }}>Strength</span></span>
             <span style={{ fontSize: 11, background: C.tealGlow, color: C.teal, border: `1px solid ${C.borderBright}`, borderRadius: 20, padding: "2px 10px", fontWeight: 700 }}>Coach</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ display: "flex", background: C.bg, borderRadius: 30, padding: 3 }}>
-              {["workouts","roster","logs","bumps","Assessments","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize" }}>{t}</button>)}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, maxWidth: "100%", minWidth: 0 }}>
+            <div style={{ display: "flex", background: C.bg, borderRadius: 30, padding: 3, overflowX: "auto", maxWidth: "100%" }}>
+              {["workouts","roster","logs","bumps","Assessments","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize", whiteSpace: "nowrap", flexShrink: 0 }}>{t}</button>)}
             </div>
-            <button onClick={onLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit" }}>Log out</button>
+            <button onClick={onLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>Log out</button>
           </div>
         </div>
       </div>
