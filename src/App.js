@@ -203,6 +203,10 @@ function getWorkoutMoveTypes(blocks) {
   return covered;
 }
 
+// Athlete specialty — used to target mobility/strength work at the right swimmers.
+const STROKES = ["Freestyle", "Backstroke", "Breaststroke", "Butterfly", "IM"];
+const DISTANCES = ["Sprint", "Mid-Distance", "Distance"];
+
 const TEST_METRICS = [
   { key: "pushups", label: "Push-ups", unit: "reps in 30s", color: C.teal },
   { key: "pullups", label: "Pull-ups", unit: "unbroken reps", color: C.gold },
@@ -595,6 +599,9 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
   const champTags = ["Regional", "State"].filter((tag) => athletes.some((a) => a.champTag === tag));
   const selectGroup = (group) => { const ids = athletes.filter((a) => a.event === group).map((a) => a.id); const allOn = ids.every((id) => assignees.includes(id)); setAssignees((a) => allOn ? a.filter((x) => !ids.includes(x)) : [...new Set([...a, ...ids])]); };
   const selectTag = (tag) => { const ids = athletes.filter((a) => a.champTag === tag).map((a) => a.id); const allOn = ids.length > 0 && ids.every((id) => assignees.includes(id)); setAssignees((a) => allOn ? a.filter((x) => !ids.includes(x)) : [...new Set([...a, ...ids])]); };
+  const selectByField = (field, value) => { const ids = athletes.filter((a) => a[field] === value).map((a) => a.id); const allOn = ids.length > 0 && ids.every((id) => assignees.includes(id)); setAssignees((a) => allOn ? a.filter((x) => !ids.includes(x)) : [...new Set([...a, ...ids])]); };
+  // Stroke/distance quick-select groups — only ones at least one athlete has set.
+  const specialtyGroups = [...STROKES.map((s) => ["stroke", s, "🏊"]), ...DISTANCES.map((d) => ["distance", d, "⏱"])].filter(([f, v]) => athletes.some((a) => a[f] === v));
   const handleGen = async () => {
     const target = athletes.find((a) => assignees.includes(a.id)) || athletes[0];
     if (!target) return;
@@ -645,6 +652,14 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
                   <button key={tag} onClick={() => selectTag(tag)} style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: allOn ? `${C.gold}22` : "transparent", border: `1px solid ${allOn || someOn ? C.gold : "transparent"}`, borderRadius: 7, padding: "6px 8px", cursor: "pointer", marginBottom: 3, fontFamily: "inherit" }}>
                     <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${allOn ? C.gold : someOn ? C.gold : C.muted}`, background: allOn ? C.gold : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{allOn && <span style={{ color: C.bg, fontSize: 9, fontWeight: 900 }}>✓</span>}{someOn && !allOn && <span style={{ color: C.gold, fontSize: 11, lineHeight: 1 }}>–</span>}</div>
                     <span style={{ fontSize: 12, color: allOn ? C.gold : C.white, flex: 1, textAlign: "left" }}>🏆 {tag}</span>
+                    <span style={{ fontSize: 10, color: C.muted }}>{gIds.length}</span>
+                  </button>
+                ); })}
+                {specialtyGroups.length > 0 && <div style={{ height: 1, background: C.border, margin: "4px 0", gridColumn: "1/-1" }} />}
+                {specialtyGroups.map(([field, val, icon]) => { const gIds = athletes.filter((a) => a[field] === val).map((a) => a.id); const allOn = gIds.length > 0 && gIds.every((id) => assignees.includes(id)); const someOn = gIds.some((id) => assignees.includes(id)); return (
+                  <button key={field + val} onClick={() => selectByField(field, val)} style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: allOn ? C.tealGlow : "transparent", border: `1px solid ${allOn || someOn ? C.teal : "transparent"}`, borderRadius: 7, padding: "6px 8px", cursor: "pointer", marginBottom: 3, fontFamily: "inherit" }}>
+                    <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${allOn || someOn ? C.teal : C.muted}`, background: allOn ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{allOn && <span style={{ color: C.bg, fontSize: 9, fontWeight: 900 }}>✓</span>}{someOn && !allOn && <span style={{ color: C.teal, fontSize: 11, lineHeight: 1 }}>–</span>}</div>
+                    <span style={{ fontSize: 12, color: allOn ? C.teal : C.white, flex: 1, textAlign: "left" }}>{icon} {val}</span>
                     <span style={{ fontSize: 10, color: C.muted }}>{gIds.length}</span>
                   </button>
                 ); })}
@@ -951,11 +966,13 @@ function EditAthleteModal({ athlete, onSave, onArchive, onDelete, onUnarchive, o
   const [eTag, setETag] = useState(athlete.champTag || "");
   const [eSchool, setESchool] = useState(athlete.school || "");
   const [eGrade, setEGrade] = useState(athlete.grade || "");
+  const [eStroke, setEStroke] = useState(athlete.stroke || "");
+  const [eDistance, setEDistance] = useState(athlete.distance || "");
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const isArchived = !!athlete.archived;
   const GRADES = ["6th","7th","8th","9th","10th","11th","12th"];
-  const handleSave = async () => { if (!eName || !ePin) return; setSaving(true); await onSave({ ...athlete, name: eName, event: eEvent, pin: ePin, champTag: eTag, school: eSchool, grade: eGrade }); setSaving(false); };
+  const handleSave = async () => { if (!eName || !ePin) return; setSaving(true); await onSave({ ...athlete, name: eName, event: eEvent, pin: ePin, champTag: eTag, school: eSchool, grade: eGrade, stroke: eStroke, distance: eDistance }); setSaving(false); };
   const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -970,12 +987,14 @@ function EditAthleteModal({ athlete, onSave, onArchive, onDelete, onUnarchive, o
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>PIN</label><input value={ePin} onChange={(e) => setEPin(e.target.value)} style={inp} /></div>
           <div style={{ gridColumn: "1/-1" }}><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>SCHOOL</label><input value={eSchool} onChange={(e) => setESchool(e.target.value)} placeholder="e.g. Farmington High School" style={inp} /></div>
         </div>
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 8 }}>GRADE</label>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-            {GRADES.map((g) => <button key={g} onClick={() => setEGrade(eGrade === g ? "" : g)} style={{ border: `1px solid ${eGrade === g ? C.teal : C.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: eGrade === g ? C.tealGlow : "transparent", color: eGrade === g ? C.teal : C.mutedUp }}>{g}</button>)}
+        {[["GRADE", GRADES, eGrade, setEGrade], ["MAIN STROKE", STROKES, eStroke, setEStroke], ["DISTANCE", DISTANCES, eDistance, setEDistance]].map(([label, options, value, setValue]) => (
+          <div key={label} style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 8 }}>{label}</label>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {options.map((g) => <button key={g} onClick={() => setValue(value === g ? "" : g)} style={{ border: `1px solid ${value === g ? C.teal : C.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: value === g ? C.tealGlow : "transparent", color: value === g ? C.teal : C.mutedUp }}>{g}</button>)}
+            </div>
           </div>
-        </div>
+        ))}
         <div style={{ marginBottom: 18 }}>
           <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>CHAMPIONSHIP TAG</label>
           <div style={{ display: "flex", gap: 8 }}>
@@ -1195,6 +1214,8 @@ function ProgressionTab({ athletes, progressions, logs, workouts, onSave, onDele
   const toggleAthlete = (id) => setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
   const selectGroup = (group) => { const ids = athletes.filter((a) => a.event === group).map((a) => a.id); const allOn = ids.every((id) => selected.includes(id)); setSelected((s) => allOn ? s.filter((x) => !ids.includes(x)) : [...new Set([...s, ...ids])]); };
   const selectTag = (tag) => { const ids = athletes.filter((a) => a.champTag === tag).map((a) => a.id); const allOn = ids.length > 0 && ids.every((id) => selected.includes(id)); setSelected((s) => allOn ? s.filter((x) => !ids.includes(x)) : [...new Set([...s, ...ids])]); };
+  const selectByField = (field, value) => { const ids = athletes.filter((a) => a[field] === value).map((a) => a.id); const allOn = ids.length > 0 && ids.every((id) => selected.includes(id)); setSelected((s) => allOn ? s.filter((x) => !ids.includes(x)) : [...new Set([...s, ...ids])]); };
+  const specialtyGroups = [...STROKES.map((s) => ["stroke", s, "🏊"]), ...DISTANCES.map((d) => ["distance", d, "⏱"])].filter(([f, v]) => athletes.some((a) => a[f] === v));
   const filteredAthletes = athletes.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
   const pctNum = parseFloat(pct);
   const canCreate = movement.trim() && !isNaN(pctNum) && pctNum !== 0 && selected.length > 0;
@@ -1258,6 +1279,14 @@ function ProgressionTab({ athletes, progressions, logs, workouts, onSave, onDele
                 <button key={tag} onClick={() => selectTag(tag)} style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: allOn ? `${C.gold}22` : "transparent", border: `1px solid ${allOn || someOn ? C.gold : "transparent"}`, borderRadius: 7, padding: "6px 8px", cursor: "pointer", marginBottom: 3, fontFamily: "inherit" }}>
                   <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${allOn ? C.gold : someOn ? C.gold : C.muted}`, background: allOn ? C.gold : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{allOn && <span style={{ color: C.bg, fontSize: 9, fontWeight: 900 }}>✓</span>}{someOn && !allOn && <span style={{ color: C.gold, fontSize: 11, lineHeight: 1 }}>–</span>}</div>
                   <span style={{ fontSize: 12, color: allOn ? C.gold : C.white, flex: 1, textAlign: "left" }}>🏆 {tag}</span>
+                  <span style={{ fontSize: 10, color: C.muted }}>{gIds.length}</span>
+                </button>
+              ); })}
+              {specialtyGroups.length > 0 && <div style={{ height: 1, background: C.border, margin: "4px 0", gridColumn: "1/-1" }} />}
+              {specialtyGroups.map(([field, val, icon]) => { const gIds = athletes.filter((a) => a[field] === val).map((a) => a.id); const allOn = gIds.length > 0 && gIds.every((id) => selected.includes(id)); const someOn = gIds.some((id) => selected.includes(id)); return (
+                <button key={field + val} onClick={() => selectByField(field, val)} style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: allOn ? C.tealGlow : "transparent", border: `1px solid ${allOn || someOn ? C.teal : "transparent"}`, borderRadius: 7, padding: "6px 8px", cursor: "pointer", marginBottom: 3, fontFamily: "inherit" }}>
+                  <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${allOn || someOn ? C.teal : C.muted}`, background: allOn ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{allOn && <span style={{ color: C.bg, fontSize: 9, fontWeight: 900 }}>✓</span>}{someOn && !allOn && <span style={{ color: C.teal, fontSize: 11, lineHeight: 1 }}>–</span>}</div>
+                  <span style={{ fontSize: 12, color: allOn ? C.teal : C.white, flex: 1, textAlign: "left" }}>{icon} {val}</span>
                   <span style={{ fontSize: 10, color: C.muted }}>{gIds.length}</span>
                 </button>
               ); })}
@@ -1532,13 +1561,23 @@ function AssessmentHistoryModal({ athlete, assessments, onDelete, onClose }) {
 function SwimmerProfileModal({ athlete, onSave, onClose }) {
   const [school, setSchool] = useState(athlete.school || "");
   const [grade, setGrade] = useState(athlete.grade || "");
+  const [stroke, setStroke] = useState(athlete.stroke || "");
+  const [distance, setDistance] = useState(athlete.distance || "");
   const [saving, setSaving] = useState(false);
   const GRADES = ["6th","7th","8th","9th","10th","11th","12th"];
   const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
-  const handleSave = async () => { setSaving(true); await onSave({ ...athlete, school, grade }); setSaving(false); onClose(); };
+  const handleSave = async () => { setSaving(true); await onSave({ ...athlete, school, grade, stroke, distance }); setSaving(false); onClose(); };
+  const chipRow = (label, options, value, setValue) => (
+    <div style={{ marginBottom: 16 }}>
+      <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 8 }}>{label}</label>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        {options.map((o) => <button key={o} onClick={() => setValue(value === o ? "" : o)} style={{ border: `1px solid ${value === o ? C.teal : C.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: value === o ? C.tealGlow : "transparent", color: value === o ? C.teal : C.mutedUp }}>{o}</button>)}
+      </div>
+    </div>
+  );
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.82)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 380, padding: 26, boxShadow: `0 0 60px ${C.tealGlow}` }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 380, padding: 26, boxShadow: `0 0 60px ${C.tealGlow}`, maxHeight: "88vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h2 style={{ margin: 0, color: C.white, fontSize: 18, fontWeight: 800 }}>Your profile</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
@@ -1547,13 +1586,10 @@ function SwimmerProfileModal({ athlete, onSave, onClose }) {
           <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>SCHOOL</label>
           <input value={school} onChange={(e) => setSchool(e.target.value)} placeholder="e.g. Farmington High School" style={inp} />
         </div>
-        <div style={{ marginBottom: 22 }}>
-          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 8 }}>GRADE</label>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-            {GRADES.map((g) => <button key={g} onClick={() => setGrade(grade === g ? "" : g)} style={{ border: `1px solid ${grade === g ? C.teal : C.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: grade === g ? C.tealGlow : "transparent", color: grade === g ? C.teal : C.mutedUp }}>{g}</button>)}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        {chipRow("GRADE", GRADES, grade, setGrade)}
+        {chipRow("MAIN STROKE", STROKES, stroke, setStroke)}
+        {chipRow("DISTANCE", DISTANCES, distance, setDistance)}
+        <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
           <Btn variant="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Btn>
           <Btn onClick={handleSave} disabled={saving} style={{ flex: 1 }}>{saving ? "Saving…" : "Save profile"}</Btn>
         </div>
@@ -1662,6 +1698,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
   const champTags = ["Regional", "State"].filter((tag) => athletes.some((a) => a.champTag === tag && !a.archived));
 
   const activeAthletes = athletes.filter((a) => !a.archived);
+  const rosterSpecialties = [...STROKES.map((s) => ["stroke", s, "🏊"]), ...DISTANCES.map((d) => ["distance", d, "⏱"])].filter(([f, v]) => activeAthletes.some((a) => a[f] === v));
   const archivedAthletes = athletes.filter((a) => a.archived);
 
   const applyFilter = (list) => {
@@ -1669,6 +1706,8 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
     if (rosterFilter !== "All") {
       if (rosterFilter === "Regional" || rosterFilter === "State") result = result.filter((a) => a.champTag === rosterFilter);
       else if (schools.includes(rosterFilter)) result = result.filter((a) => a.school === rosterFilter);
+      else if (STROKES.includes(rosterFilter)) result = result.filter((a) => a.stroke === rosterFilter);
+      else if (DISTANCES.includes(rosterFilter)) result = result.filter((a) => a.distance === rosterFilter);
       else result = result.filter((a) => a.event === rosterFilter);
     }
     if (rosterSearch) result = result.filter((a) => a.name.toLowerCase().includes(rosterSearch.toLowerCase()) || a.school?.toLowerCase().includes(rosterSearch.toLowerCase()));
@@ -1760,6 +1799,8 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
               {schools.map((s) => <button key={s} onClick={() => setRosterFilter(s)} style={{ border: `1px solid ${rosterFilter === s ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === s ? C.tealGlow : "transparent", color: rosterFilter === s ? C.teal : C.mutedUp }}>{s.replace(" High School","").replace(" Middle School","")} ({activeAthletes.filter((a) => a.school === s).length})</button>)}
               {champTags.length > 0 && <div style={{ width: 1, background: C.border, margin: "0 3px" }} />}
               {champTags.map((tag) => <button key={tag} onClick={() => setRosterFilter(tag)} style={{ border: `1px solid ${rosterFilter === tag ? C.gold : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === tag ? `${C.gold}22` : "transparent", color: rosterFilter === tag ? C.gold : C.mutedUp }}>🏆 {tag} ({activeAthletes.filter((a) => a.champTag === tag).length})</button>)}
+              {rosterSpecialties.length > 0 && <div style={{ width: 1, background: C.border, margin: "0 3px" }} />}
+              {rosterSpecialties.map(([field, val, icon]) => <button key={field + val} onClick={() => setRosterFilter(val)} style={{ border: `1px solid ${rosterFilter === val ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === val ? C.tealGlow : "transparent", color: rosterFilter === val ? C.teal : C.mutedUp }}>{icon} {val} ({activeAthletes.filter((a) => a[field] === val).length})</button>)}
             </div>
             {filteredAthletes.length === 0 && <p style={{ color: C.muted, textAlign: "center", padding: "32px 0" }}>No athletes match this filter.</p>}
             {filteredAthletes.map((a) => {
@@ -1775,7 +1816,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
                         {a.champTag && <span style={{ fontSize: 10, fontWeight: 700, color: C.gold, background: `${C.gold}1A`, border: `1px solid ${C.gold}44`, borderRadius: 10, padding: "1px 6px" }}>🏆 {a.champTag}</span>}
                         {a.grade && <span style={{ fontSize: 10, color: C.mutedUp, background: C.surfaceUp, borderRadius: 10, padding: "1px 6px" }}>{a.grade}</span>}
                       </div>
-                      <p style={{ margin: "2px 0 0", color: C.muted, fontSize: 11 }}>{a.event || "No group"}{a.school ? ` · ${a.school}` : ""}</p>
+                      <p style={{ margin: "2px 0 0", color: C.muted, fontSize: 11 }}>{[a.event || "No group", a.school, a.stroke, a.distance].filter(Boolean).join(" · ")}</p>
                     </div>
                     <div style={{ display: "flex", gap: 16, textAlign: "center", marginRight: 6 }}>
                       <div><p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.white }}>{aWkts.length}</p><p style={{ margin: 0, fontSize: 10, color: C.muted }}>wkts</p></div>
@@ -1820,7 +1861,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
               <button onClick={() => setSelectedAthlete(null)} style={{ background: "none", border: "none", color: C.teal, cursor: "pointer", fontSize: 13, marginBottom: 18, padding: 0, fontFamily: "inherit" }}>← Back to roster</button>
               <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
                 <Avatar name={selectedAthlete.name} size={56} />
-                <div style={{ flex: 1 }}><h2 style={{ margin: 0, color: C.white, fontSize: 22, fontWeight: 900 }}>{selectedAthlete.name}</h2><p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>{selectedAthlete.event || "No group"}</p></div>
+                <div style={{ flex: 1 }}><h2 style={{ margin: 0, color: C.white, fontSize: 22, fontWeight: 900 }}>{selectedAthlete.name}</h2><p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>{[selectedAthlete.event || "No group", selectedAthlete.stroke, selectedAthlete.distance].filter(Boolean).join(" · ")}</p></div>
                 <Btn variant="ghost" small onClick={() => setEditAthlete(selectedAthlete)}>Edit athlete</Btn>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 24 }}>
