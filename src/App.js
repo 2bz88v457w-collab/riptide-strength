@@ -498,7 +498,7 @@ function MovePicker({ title, subtitle, multi, onAdd, onPick, onClose }) {
   );
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 300, display: "flex", alignItems: isNarrow ? "flex-end" : "center", justifyContent: "center", padding: isNarrow ? 0 : 20 }}>
-      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: isNarrow ? "18px 18px 0 0" : 16, width: "100%", maxWidth: 560, padding: isNarrow ? 14 : 22, display: "flex", flexDirection: "column", maxHeight: isNarrow ? "88vh" : "80vh", boxShadow: `0 0 60px ${C.tealGlow}` }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: isNarrow ? "18px 18px 0 0" : 16, width: "100%", maxWidth: 560, padding: isNarrow ? "14px 14px calc(14px + env(safe-area-inset-bottom))" : 22, display: "flex", flexDirection: "column", maxHeight: isNarrow ? "88vh" : "80vh", boxShadow: `0 0 60px ${C.tealGlow}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
           <div>
             <h3 style={{ margin: 0, color: C.white, fontSize: 17, fontWeight: 800 }}>{title}</h3>
@@ -613,7 +613,7 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
   const filteredAthletes = athletes.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 900, padding: isNarrow ? 16 : 28, boxShadow: `0 0 60px ${C.tealGlow}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
           <h2 style={{ margin: 0, color: C.white, fontSize: 20, fontWeight: 800 }}>{editWkt ? "Edit workout" : "New workout"}</h2>
@@ -738,7 +738,7 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
 function SessionDetailModal({ log, workout, athlete, onClose }) {
   if (!log || !workout) return null;
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.82)", zIndex: 200, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.82)", zIndex: 200, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 640, padding: 26 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
           <div><h2 style={{ margin: 0, color: C.white, fontSize: 18, fontWeight: 800 }}>{workout.title}</h2><p style={{ margin: "3px 0 0", color: C.muted, fontSize: 13 }}>{athlete?.name} · {fmtDate(log.date)}</p></div>
@@ -890,7 +890,7 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.82)", zIndex: 200, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.82)", zIndex: 200, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 640, padding: 26, boxShadow: `0 0 60px ${C.tealGlow}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div><h2 style={{ margin: 0, color: C.white, fontSize: 18, fontWeight: 800 }}>{workout.title}</h2><p style={{ margin: "3px 0 0", color: C.muted, fontSize: 12 }}>{fmtDate(workout.date)}</p></div>
@@ -1028,7 +1028,7 @@ function TestScoreModal({ athletes, onSave, onClose }) {
     setScores({ pushups: "", pullups: "", rdl: "" }); setNotes(""); setSaving(false);
   };
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 520, padding: 28, boxShadow: `0 0 60px ${C.tealGlow}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
           <h2 style={{ margin: 0, color: C.white, fontSize: 20, fontWeight: 800 }}>Enter test scores</h2>
@@ -1346,7 +1346,7 @@ function AssessmentModal({ athletes, onSave, onClose }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 620, padding: isNarrow ? 16 : 26, boxShadow: `0 0 60px ${C.tealGlow}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <h2 style={{ margin: 0, color: C.white, fontSize: 19, fontWeight: 800 }}>Movement assessment</h2>
@@ -1480,7 +1480,7 @@ function AssessmentTab({ athletes, assessments, onSaveAssessment, onDeleteAssess
 function AssessmentHistoryModal({ athlete, assessments, onDelete, onClose }) {
   const cellVal = (v) => v === 0 || v === 1 || v === 2 ? v : "—";
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 16px" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 100, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 680, padding: 26 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}><Avatar name={athlete.name} size={40} />
@@ -1601,7 +1601,7 @@ function AthleteApp({ athlete, workouts, logs, testScores, progressions, onConsu
   const [showProfile, setShowProfile] = useState(false);
   return (
     <div style={{ minHeight: "100vh", background: C.bg }}>
-      <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "0 20px" }}>
+      <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "env(safe-area-inset-top) 20px 0" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Avatar name={athlete.name} size={34} /><div><p style={{ margin: 0, fontWeight: 800, fontSize: 15, color: C.white }}>{athlete.name}</p><p style={{ margin: 0, fontSize: 11, color: C.muted }}>{athlete.grade ? `${athlete.grade} · ` : ""}{athlete.school || athlete.event}</p></div></div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -1610,7 +1610,7 @@ function AthleteApp({ athlete, workouts, logs, testScores, progressions, onConsu
           </div>
         </div>
       </div>
-      <div style={{ maxWidth: 640, margin: "0 auto", padding: "24px 20px" }}>
+      <div style={{ maxWidth: 640, margin: "0 auto", padding: "24px 20px calc(24px + env(safe-area-inset-bottom))" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 20 }}>
           <StatCard label="Workouts" value={myWorkouts.length} />
           <StatCard label="Logged" value={myLogs.length} accent={myLogs.length > 0 ? C.teal : undefined} />
@@ -1683,7 +1683,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg }}>
-      <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "0 20px" }}>
+      <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "env(safe-area-inset-top) 20px 0" }}>
         <div style={{ maxWidth: 900, margin: "0 auto", minHeight: 58, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "4px 10px", padding: "8px 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 30, height: 30, borderRadius: 7, background: C.teal, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={C.bg} strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg></div>
@@ -1699,7 +1699,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "26px 20px" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "26px 20px calc(26px + env(safe-area-inset-bottom))" }}>
 
         {tab === "workouts" && (
           <div>
