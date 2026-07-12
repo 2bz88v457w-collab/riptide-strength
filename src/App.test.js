@@ -8,11 +8,15 @@ jest.mock('@supabase/supabase-js', () => ({
   }),
 }));
 
+const { default: App } = require('./App');
 const {
-  default: App, roundLoad, getProgressionFill,
-  getMoveTypes, getWorkoutMoveTypes, EXERCISE_CATEGORIES, EXERCISE_BANK, REQUIRED_MOVE_TYPES,
-  ASSESSMENT_MOVEMENTS, ASSESSMENT_MAX, computeMovementScore, movementLevel,
-} = require('./App');
+  roundLoad, getProgressionFill, getMoveTypes, getWorkoutMoveTypes,
+  computeMovementScore, movementLevel,
+} = require('./helpers');
+const {
+  EXERCISE_CATEGORIES, EXERCISE_BANK, REQUIRED_MOVE_TYPES,
+  ASSESSMENT_MOVEMENTS, ASSESSMENT_MAX,
+} = require('./constants');
 
 test('shows the loading screen, then the login screen', async () => {
   render(<App />);
