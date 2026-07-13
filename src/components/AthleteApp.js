@@ -24,8 +24,12 @@ function AthleteApp({ athlete, workouts, logs, testScores, progressions, onConsu
   const lastWeekKey = (() => { const d = new Date(thisWeekKey + "T12:00:00"); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10); })();
   const weekLabel = (key) => key === thisWeekKey ? "This week" : key === lastWeekKey ? "Last week" : `Week of ${fmtDate(key)}`;
 
-  // Up Next = most recent workout without a log
-  const upNext = myWorkouts.find((w) => !myLogs.some((l) => l.workoutId === w.id));
+  // Up Next = newest unlogged workout dated today or earlier, so workouts
+  // built out in advance don't take over the hero; if nothing is due yet,
+  // fall back to the soonest upcoming one (myWorkouts is sorted newest-first)
+  const todayKey = today();
+  const unlogged = myWorkouts.filter((w) => !myLogs.some((l) => l.workoutId === w.id));
+  const upNext = unlogged.find((w) => w.date <= todayKey) || unlogged[unlogged.length - 1];
   const historyWorkouts = myWorkouts.filter((w) => w.id !== upNext?.id);
 
   // Group history by week, newest week first
