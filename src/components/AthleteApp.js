@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { C } from "../constants";
-import { fmtDate } from "../helpers";
+import { fmtDate, today } from "../helpers";
 import { AthletePRCard, AthleteProgressCard } from "./AthleteCards";
 import { LogModal } from "./LogModal";
 import { SwimmerProfileModal } from "./SwimmerProfileModal";
@@ -12,6 +12,38 @@ function AthleteApp({ athlete, workouts, logs, testScores, progressions, onConsu
   const myLogs = logs.filter((l) => l.athleteId === athlete.id);
   const [logTarget, setLogTarget] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
+
+  // Week helpers (weeks start Monday)
+  const weekStartKey = (dateStr) => {
+    const d = new Date(dateStr + "T12:00:00");
+    const day = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - day);
+    return d.toISOString().slice(0, 10);
+  };
+  const thisWeekKey = weekStartKey(today());
+  const lastWeekKey = (() => { const d = new Date(thisWeekKey + "T12:00:00"); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10); })();
+  const weekLabel = (key) => key === thisWeekKey ? "This week" : key === lastWeekKey ? "Last week" : `Week of ${fmtDate(key)}`;
+
+  // Up Next = most recent workout without a log
+  const upNext = myWorkouts.find((w) => !myLogs.some((l) => l.workoutId === w.id));
+  const historyWorkouts = myWorkouts.filter((w) => w.id !== upNext?.id);
+
+  // Group history by week, newest week first
+  const weekGroups = [];
+  historyWorkouts.forEach((w) => {
+    const key = weekStartKey(w.date);
+    let group = weekGroups.find((g) => g.key === key);
+    if (!group) { group = { key, workouts: [] }; weekGroups.push(group); }
+    group.workouts.push(w);
+  });
+  weekGroups.sort((a, b) => b.key.localeCompare(a.key));
+
+  const [expandedWeeks, setExpandedWeeks] = useState(() => new Set([thisWeekKey]));
+  const toggleWeek = (key) => setExpandedWeeks((s) => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
+
+  const upNextEx = upNext?.blocks?.reduce((s, b) => s + b.exercises.length, 0) || 0;
+  const upNextSupers = upNext?.blocks?.reduce((s, b) => { const p = new Set(b.exercises.filter((e) => e.pairId).map((e) => e.pairId)); return s + p.size; }, 0) || 0;
+
   return (
     <div style={{ minHeight: "100vh", background: C.bg }}>
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "env(safe-area-inset-top) 20px 0" }}>
@@ -24,6 +56,22 @@ function AthleteApp({ athlete, workouts, logs, testScores, progressions, onConsu
         </div>
       </div>
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "24px 20px calc(24px + env(safe-area-inset-bottom))" }}>
+
+        {/* UP NEXT hero */}
+        {upNext ? (
+          <div style={{ background: `linear-gradient(135deg, ${C.surfaceUp}, ${C.surface})`, border: `1px solid ${C.borderBright}`, borderRadius: 18, padding: "20px 22px", marginBottom: 20, boxShadow: `0 0 40px ${C.tealGlow}` }}>
+            <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 800, color: C.teal, textTransform: "uppercase", letterSpacing: ".08em" }}>Up next</p>
+            <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: C.white }}>{upNext.title}</p>
+            <p style={{ margin: "5px 0 16px", fontSize: 13, color: C.muted }}>{fmtDate(upNext.date)} · {upNextEx} exercises{upNextSupers > 0 && <span style={{ color: C.gold }}> · {upNextSupers} superset{upNextSupers > 1 ? "s" : ""}</span>}</p>
+            <button onClick={() => setLogTarget({ wkt: upNext, existingLog: null })} style={{ background: C.teal, color: C.bg, border: "none", borderRadius: 12, padding: "13px 0", fontWeight: 900, fontSize: 15, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>Start logging →</button>
+          </div>
+        ) : myWorkouts.length > 0 && (
+          <div style={{ background: C.surface, border: `1px solid ${C.teal}55`, borderRadius: 18, padding: "18px 22px", marginBottom: 20, textAlign: "center" }}>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.teal }}>✓ You're all caught up</p>
+            <p style={{ margin: "4px 0 0", fontSize: 12, color: C.muted }}>Every assigned workout is logged. Nice work.</p>
+          </div>
+        )}
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 20 }}>
           <StatCard label="Workouts" value={myWorkouts.length} />
           <StatCard label="Logged" value={myLogs.length} accent={myLogs.length > 0 ? C.teal : undefined} />
@@ -31,19 +79,37 @@ function AthleteApp({ athlete, workouts, logs, testScores, progressions, onConsu
         </div>
         <AthleteProgressCard athlete={athlete} testScores={testScores} />
         <AthletePRCard athlete={athlete} logs={logs} workouts={workouts} />
-        <h3 style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", letterSpacing: ".06em", textTransform: "uppercase" }}>Your workouts</h3>
+
+        {/* Weekly grouped history */}
         {myWorkouts.length === 0 && <p style={{ color: C.muted, textAlign: "center", padding: "40px 0" }}>No workouts assigned yet — check back soon.</p>}
-        {myWorkouts.map((wkt) => {
-          const log = myLogs.find((l) => l.workoutId === wkt.id);
-          const totalEx = wkt.blocks?.reduce((s, b) => s + b.exercises.length, 0) || 0;
-          const supersetCount = wkt.blocks?.reduce((s, b) => { const p = new Set(b.exercises.filter((e) => e.pairId).map((e) => e.pairId)); return s + p.size; }, 0) || 0;
+        {weekGroups.length > 0 && <h3 style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", letterSpacing: ".06em", textTransform: "uppercase" }}>History</h3>}
+        {weekGroups.map((group) => {
+          const open = expandedWeeks.has(group.key);
+          const loggedCount = group.workouts.filter((w) => myLogs.some((l) => l.workoutId === w.id)).length;
           return (
-            <div key={wkt.id} style={{ background: C.surface, border: `1px solid ${log ? C.teal : C.border}`, borderRadius: 14, padding: "16px 18px", marginBottom: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div><p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 15 }}>{wkt.title}</p><p style={{ margin: "3px 0 0", fontSize: 12, color: C.muted }}>{fmtDate(wkt.date)} · {totalEx} exercises{supersetCount > 0 && <span style={{ color: C.gold, marginLeft: 6 }}>· {supersetCount} superset{supersetCount > 1 ? "s" : ""}</span>}</p></div>
-                <button onClick={() => setLogTarget({ wkt, existingLog: log })} style={{ background: log ? "transparent" : C.teal, color: log ? C.teal : C.bg, border: `1px solid ${C.teal}`, borderRadius: 9, padding: "7px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, marginLeft: 12 }}>{log ? "View log" : "Log session"}</button>
-              </div>
-              {log && <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, marginTop: 10, display: "flex", gap: 16, flexWrap: "wrap" }}>{log.rpe && <span style={{ fontSize: 12, color: C.gold, fontWeight: 700 }}>RPE {log.rpe}/10</span>}{log.note && <span style={{ fontSize: 12, color: C.mutedUp, fontStyle: "italic" }}>"{log.note.slice(0, 90)}{log.note.length > 90 ? "…" : ""}"</span>}</div>}
+            <div key={group.key} style={{ marginBottom: 10 }}>
+              <button onClick={() => toggleWeek(group.key)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: open ? "12px 12px 0 0" : 12, padding: "11px 16px", cursor: "pointer", fontFamily: "inherit" }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{open ? "▾" : "▸"} {weekLabel(group.key)}</span>
+                <span style={{ fontSize: 11, color: loggedCount === group.workouts.length ? C.teal : C.muted, fontWeight: 700 }}>{loggedCount}/{group.workouts.length} logged</span>
+              </button>
+              {open && (
+                <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderTop: "none", borderRadius: "0 0 12px 12px", padding: "6px 8px" }}>
+                  {group.workouts.map((wkt) => {
+                    const log = myLogs.find((l) => l.workoutId === wkt.id);
+                    return (
+                      <button key={wkt.id} onClick={() => setLogTarget({ wkt, existingLog: log })} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: "transparent", border: "none", borderRadius: 8, padding: "9px 8px", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+                        <span style={{ fontSize: 14, color: log ? C.teal : C.muted, width: 18, flexShrink: 0 }}>{log ? "✓" : "○"}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: C.white, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wkt.title}</p>
+                          <p style={{ margin: "1px 0 0", fontSize: 11, color: C.muted }}>{fmtDate(wkt.date)}</p>
+                        </div>
+                        {log?.rpe && <span style={{ fontSize: 11, color: C.gold, fontWeight: 700, flexShrink: 0 }}>RPE {log.rpe}</span>}
+                        <span style={{ fontSize: 11, color: C.mutedUp, flexShrink: 0 }}>{log ? "View" : "Log"} ›</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
