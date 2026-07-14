@@ -5,6 +5,13 @@ import { render, screen } from '@testing-library/react';
 jest.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
     from: () => ({ select: () => Promise.resolve({ data: [] }) }),
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      signInWithPassword: () => Promise.resolve({ error: { message: 'no users in test' } }),
+      signOut: () => Promise.resolve({}),
+    },
+    functions: { invoke: () => Promise.resolve({ data: null, error: { message: 'not available in test' } }) },
   }),
 }));
 

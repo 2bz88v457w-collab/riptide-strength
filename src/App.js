@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./lib/supabase";
+import { sessionRole, signOut } from "./lib/auth";
+import { rosterAdmin } from "./lib/rosterAdmin";
 import { C } from "./constants";
 import { LoginScreen } from "./components/LoginScreen";
 import { CoachApp } from "./components/CoachApp";
@@ -17,8 +19,16 @@ const parseWorkout = (w) => ({ ...w, blocks: typeof w.blocks === "string" ? JSON
 const parseLog = (l) => ({ ...l, sets: typeof l.sets === "string" ? JSON.parse(l.sets) : l.sets, blockNotes: typeof l.blockNotes === "string" && l.blockNotes ? JSON.parse(l.blockNotes) : l.blockNotes });
 const parseAssessment = (a) => ({ ...a, movement: typeof a.movement === "string" ? JSON.parse(a.movement) : a.movement, performance: typeof a.performance === "string" && a.performance ? JSON.parse(a.performance) : a.performance });
 
+const LoadingScreen = () => (
+  <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+    <div style={{ width: 44, height: 44, borderRadius: 10, background: C.teal, display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.bg} strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg></div>
+    <p style={{ color: C.muted, fontSize: 14, margin: 0, fontFamily: "system-ui" }}>Loading Riptide Strength…</p>
+  </div>
+);
+
 export default function App() {
-  const [session, setSession] = useState(null);
+  // authSession: undefined = still checking storage, null = signed out.
+  const [authSession, setAuthSession] = useState(undefined);
   const [athletes, setAthletes] = useState([]);
   const [workouts, setWorkouts] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -28,6 +38,17 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setAuthSession(data.session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setAuthSession(session));
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Data is fetched once signed in; RLS decides what each role can see, so the
+  // same queries serve both coach and athlete.
+  const userId = authSession?.user?.id;
+  useEffect(() => {
+    if (!userId) { setLoading(true); return; }
+    let cancelled = false;
     async function fetchAll() {
       const [ath, wkts, lg, ts, prog, assess] = await Promise.all([
         supabase.from("athletes").select("*"),
@@ -37,6 +58,7 @@ export default function App() {
         supabase.from("progressions").select("*"),
         supabase.from("assessments").select("*"),
       ]);
+      if (cancelled) return;
       const failed = [];
       const take = (res, label) => {
         if (res.error) { console.error(`Loading ${label} failed:`, res.error); failed.push(label); return []; }
@@ -52,7 +74,8 @@ export default function App() {
       setLoading(false);
     }
     fetchAll();
-  }, []);
+    return () => { cancelled = true; };
+  }, [userId]);
 
   const saveWorkout = useCallback(async (wkt) => {
     const payload = { ...wkt, blocks: JSON.stringify(wkt.blocks), assignees: JSON.stringify(wkt.assignees) };
@@ -140,35 +163,55 @@ export default function App() {
     return true;
   }, []);
 
-  const addAthlete = useCallback(async (athlete) => {
-    const { error } = await supabase.from("athletes").insert(athlete);
-    if (error) { reportDbError("Adding athlete", error); return false; }
-    setAthletes((as) => [...as, athlete]);
+  // Coach roster operations go through the roster-admin edge function so the
+  // matching auth user is created/updated/deleted alongside the row.
+  const addAthlete = useCallback(async (athleteWithPin) => {
+    const { pin, ...athlete } = athleteWithPin;
+    const { ok, error, data } = await rosterAdmin("create", { athlete, pin });
+    if (!ok) { reportDbError("Adding athlete", error); return false; }
+    setAthletes((as) => [...as, data.athlete]);
     return true;
   }, []);
 
-  const updateAthlete = useCallback(async (athlete) => {
-    const { error } = await supabase.from("athletes").update(athlete).eq("id", athlete.id);
-    if (error) { reportDbError("Saving athlete", error); return false; }
-    setAthletes((as) => as.map((a) => a.id === athlete.id ? athlete : a));
+  const coachUpdateAthlete = useCallback(async (athleteWithPin) => {
+    const { pin, ...athlete } = athleteWithPin;
+    const { ok, error, data } = await rosterAdmin("update", { athlete, pin: pin || null });
+    if (!ok) { reportDbError("Saving athlete", error); return false; }
+    setAthletes((as) => as.map((a) => a.id === athlete.id ? data.athlete : a));
     return true;
   }, []);
 
   const deleteAthlete = useCallback(async (id) => {
-    const { error } = await supabase.from("athletes").delete().eq("id", id);
-    if (error) { reportDbError("Deleting athlete", error); return false; }
+    const { ok, error } = await rosterAdmin("delete", { athleteId: id });
+    if (!ok) { reportDbError("Deleting athlete", error); return false; }
     setAthletes((as) => as.filter((a) => a.id !== id));
     return true;
   }, []);
 
-  if (loading) return (
-    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-      <div style={{ width: 44, height: 44, borderRadius: 10, background: C.teal, display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.bg} strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg></div>
-      <p style={{ color: C.muted, fontSize: 14, margin: 0, fontFamily: "system-ui" }}>Loading Riptide Strength…</p>
+  // Athletes update their own row directly (RLS allows own-row updates).
+  const updateAthleteProfile = useCallback(async (athlete) => {
+    const { error } = await supabase.from("athletes").update(athlete).eq("id", athlete.id);
+    if (error) { reportDbError("Saving profile", error); return false; }
+    setAthletes((as) => as.map((a) => a.id === athlete.id ? athlete : a));
+    return true;
+  }, []);
+
+  const handleLogout = useCallback(() => { signOut(); }, []);
+
+  if (authSession === undefined) return <LoadingScreen />;
+  if (!authSession) return <LoginScreen />;
+  if (loading) return <LoadingScreen />;
+
+  const role = sessionRole(authSession);
+  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onSaveTestScore={saveTestScore} onLogout={handleLogout} />;
+
+  const me = athletes.find((a) => a.user_id === authSession.user.id);
+  if (!me) return (
+    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 14, padding: 24, textAlign: "center" }}>
+      <p style={{ color: C.white, fontSize: 15, margin: 0 }}>Your login works, but you're not on the roster yet.</p>
+      <p style={{ color: C.muted, fontSize: 13, margin: 0 }}>Ask your coach to check your athlete entry, then sign in again.</p>
+      <button onClick={handleLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, fontSize: 13, padding: "8px 18px", cursor: "pointer", fontFamily: "inherit" }}>Log out</button>
     </div>
   );
-
-  if (!session) return <LoginScreen athletes={athletes} onLogin={(a) => setSession({ role: "athlete", athlete: a })} onCoachLogin={() => setSession({ role: "coach" })} />;
-  if (session.role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={updateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onSaveTestScore={saveTestScore} onLogout={() => setSession(null)} />;
-  return <AthleteApp athlete={session.athlete} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} onConsumeProgressions={deleteProgressions} onLog={saveLog} onUpdateAthlete={updateAthlete} onLogout={() => setSession(null)} />;
+  return <AthleteApp athlete={me} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} onConsumeProgressions={deleteProgressions} onLog={saveLog} onUpdateAthlete={updateAthleteProfile} onLogout={handleLogout} />;
 }

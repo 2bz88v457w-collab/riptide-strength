@@ -6,7 +6,7 @@ import { Btn } from "./common";
 function EditAthleteModal({ athlete, onSave, onArchive, onDelete, onUnarchive, onClose }) {
   const [eName, setEName] = useState(athlete.name);
   const [eEvent, setEEvent] = useState(athlete.event || "");
-  const [ePin, setEPin] = useState(athlete.pin);
+  const [ePin, setEPin] = useState(""); // blank = keep current PIN (PINs are auth passwords now)
   const [eTag, setETag] = useState(athlete.champTag || "");
   const [eSchool, setESchool] = useState(athlete.school || "");
   const [eGrade, setEGrade] = useState(athlete.grade || "");
@@ -16,7 +16,7 @@ function EditAthleteModal({ athlete, onSave, onArchive, onDelete, onUnarchive, o
   const [confirming, setConfirming] = useState(false);
   const isArchived = !!athlete.archived;
   const GRADES = ["6th","7th","8th","9th","10th","11th","12th"];
-  const handleSave = async () => { if (!eName || !ePin) return; setSaving(true); await onSave({ ...athlete, name: eName, event: eEvent, pin: ePin, champTag: eTag, school: eSchool, grade: eGrade, stroke: eStroke, distance: eDistance }); setSaving(false); };
+  const handleSave = async () => { if (!eName) return; setSaving(true); await onSave({ ...athlete, name: eName, event: eEvent, pin: ePin.trim() || null, champTag: eTag, school: eSchool, grade: eGrade, stroke: eStroke, distance: eDistance }); setSaving(false); };
   const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -28,7 +28,7 @@ function EditAthleteModal({ athlete, onSave, onArchive, onDelete, onUnarchive, o
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
           <div style={{ gridColumn: "1/-1" }}><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>FULL NAME</label><input value={eName} onChange={(e) => setEName(e.target.value)} style={inp} /></div>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>POOL GROUP</label><input value={eEvent} onChange={(e) => setEEvent(e.target.value)} style={inp} /></div>
-          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>PIN</label><input value={ePin} onChange={(e) => setEPin(e.target.value)} style={inp} /></div>
+          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>NEW PIN</label><input value={ePin} onChange={(e) => setEPin(e.target.value)} placeholder="Blank = unchanged" style={inp} /></div>
           <div style={{ gridColumn: "1/-1" }}><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>SCHOOL</label><input value={eSchool} onChange={(e) => setESchool(e.target.value)} placeholder="e.g. Farmington High School" style={inp} /></div>
         </div>
         {[["GRADE", GRADES, eGrade, setEGrade], ["MAIN STROKE", STROKES, eStroke, setEStroke], ["DISTANCE", DISTANCES, eDistance, setEDistance]].map(([label, options, value, setValue]) => (
@@ -65,7 +65,7 @@ function EditAthleteModal({ athlete, onSave, onArchive, onDelete, onUnarchive, o
           )}
           <div style={{ flex: 1 }} />
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
-          <Btn onClick={handleSave} disabled={!eName || !ePin || saving}>{saving ? "Saving…" : "Save"}</Btn>
+          <Btn onClick={handleSave} disabled={!eName || saving}>{saving ? "Saving…" : "Save"}</Btn>
         </div>
       </div>
     </div>
