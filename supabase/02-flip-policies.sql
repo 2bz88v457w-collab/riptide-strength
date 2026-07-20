@@ -11,7 +11,7 @@ declare p record;
 begin
   for p in select schemaname, tablename, policyname from pg_policies
     where schemaname = 'public'
-      and tablename in ('athletes','workouts','logs','test_scores','progressions','assessments')
+      and tablename in ('athletes','workouts','logs','test_scores','progressions','assessments','groups')
   loop
     execute format('drop policy %I on %I.%I', p.policyname, p.schemaname, p.tablename);
   end loop;
@@ -60,3 +60,8 @@ create policy "own or coach delete" on progressions for delete to authenticated
 create policy "coach read"   on assessments for select to authenticated using (is_coach());
 create policy "coach insert" on assessments for insert to authenticated with check (is_coach());
 create policy "coach delete" on assessments for delete to authenticated using (is_coach());
+
+-- groups: legacy table, unused by the app today (reserved for future custom
+-- groups). Coach-only until a feature actually needs it.
+create policy "coach only" on groups for all to authenticated
+  using (is_coach()) with check (is_coach());

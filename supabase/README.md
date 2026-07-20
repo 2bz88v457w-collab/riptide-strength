@@ -55,6 +55,19 @@ Run `04-cleanup.sql` (nulls the plaintext `pin` column — PINs now exist only
 as auth passwords). From then on the Edit Athlete screen shows a blank
 "New PIN" field: entering a value resets the athlete's PIN, blank leaves it.
 
+## Security Advisor notes
+
+- The seven "RLS Policy Always True" warnings are the permissive policies
+  deliberately kept until Phase 3; `02-flip-policies.sql` clears all of them
+  (including the legacy, app-unused `groups` table → coach-only).
+- `05-lint-fixes.sql` (safe anytime) revokes anonymous EXECUTE on `is_coach()`.
+  The "authenticated can execute" warning that remains is intentional: RLS
+  policies run as the signed-in user, so `authenticated` must keep EXECUTE;
+  the function only returns whether the caller themself is a coach.
+- "Leaked password protection" (Auth settings) is optional to enable; athlete
+  passwords are PIN-derived with a suffix, so HaveIBeenPwned collisions are
+  effectively impossible, and it adds real protection for the coach password.
+
 ## Notes
 
 - Credential derivation (synthetic email from name, password from PIN) lives in
