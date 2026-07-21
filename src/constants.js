@@ -1,9 +1,9 @@
 const C = {
-  bg: "#060D14", surface: "#0D1B2A", surfaceUp: "#132338",
-  border: "rgba(0,210,180,0.12)", borderBright: "rgba(0,210,180,0.35)",
-  teal: "#00D4B8", tealGlow: "rgba(0,212,184,0.15)",
-  gold: "#FFB700", red: "#FF4D4D",
-  white: "#EEF4F8", muted: "#5A7A96", mutedUp: "#7A9AB6",
+  bg: "#050E1C", surface: "#0C1E38", surfaceUp: "#122A4C",
+  border: "rgba(46,155,255,0.14)", borderBright: "rgba(46,155,255,0.40)",
+  teal: "#2E9BFF", tealGlow: "rgba(46,155,255,0.16)",
+  gold: "#C8E64C", red: "#FF5A5A",
+  white: "#F0F6FC", muted: "#5D7BA0", mutedUp: "#7E9CC2",
 };
 
 const BLOCK_COLORS = [C.teal, C.gold, "#A78BFA", C.red, C.mutedUp];
