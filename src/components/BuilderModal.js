@@ -9,10 +9,13 @@ import { PairPicker } from "./PairPicker";
 import { Btn } from "./common";
 
 // ─── WORKOUT BUILDER ──────────────────────────────────────────────────────────
-function BuilderModal({ athletes, onSave, onClose, editWkt }) {
+function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
   const isNarrow = useIsNarrow();
   const [title, setTitle] = useState(editWkt?.title || "");
   const [date, setDate] = useState(editWkt?.date || today());
+  // Season is a display/filter label only — new workouts default to the most
+  // recently used season so the coach only types it when a season turns over.
+  const [season, setSeason] = useState(editWkt ? (editWkt.season || "") : (defaultSeason || ""));
   const [assignees, setAssignees] = useState(editWkt?.assignees || []);
   const [blocks, setBlocks] = useState(() => editWkt?.blocks ? JSON.parse(JSON.stringify(editWkt.blocks)) : initBlocks());
   const [focus, setFocus] = useState("");
@@ -60,7 +63,7 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
   const handleSave = async () => {
     if (!title || assignees.length === 0) return;
     setSaving(true);
-    await onSave({ id: editWkt?.id || uid(), title, date, assignees, blocks });
+    await onSave({ id: editWkt?.id || uid(), title, date, season: season.trim(), assignees, blocks });
     setSaving(false);
   };
   const inp = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
@@ -73,8 +76,9 @@ function BuilderModal({ athletes, onSave, onClose, editWkt }) {
           <h2 style={{ margin: 0, color: C.white, fontSize: 20, fontWeight: 800 }}>{editWkt ? "Edit workout" : "New workout"}</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: isNarrow ? "1fr" : "1fr 160px", gap: 12, marginBottom: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isNarrow ? "1fr" : "1fr 180px 160px", gap: 12, marginBottom: 18 }}>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>TITLE</label><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Strength Power – Week 5" style={inp} /></div>
+          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>SEASON</label><input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="e.g. 2026 Long Course" style={inp} /></div>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>DATE</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp} /></div>
         </div>
         <div style={{ marginBottom: 18 }}>

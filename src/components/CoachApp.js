@@ -26,6 +26,11 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
   const [rosterSort, setRosterSort] = useState("alpha");
   const [rosterSearch, setRosterSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [seasonFilter, setSeasonFilter] = useState("All");
+  // Distinct seasons, newest first (ordered by each season's most recent workout date).
+  const seasons = [...new Set([...workouts].sort((a, b) => b.date.localeCompare(a.date)).map((w) => w.season).filter(Boolean))];
+  const latestSeason = seasons[0] || "";
+  const seasonWorkouts = seasonFilter === "All" ? workouts : workouts.filter((w) => w.season === seasonFilter);
   const poolGroups = [...new Set(athletes.map((a) => a.event).filter(Boolean))];
   const schools = [...new Set(athletes.filter((a) => !a.archived).map((a) => a.school).filter(Boolean))].sort();
   const champTags = ["Regional", "State"].filter((tag) => athletes.some((a) => a.champTag === tag && !a.archived));
@@ -85,8 +90,15 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
               <StatCard label="Sessions logged" value={logs.length} accent={logs.length > 0 ? C.teal : undefined} />
               <StatCard label="This week" value={workouts.filter((w) => { const diff = (Date.now() - new Date(w.date + "T12:00:00")) / 86400000; return diff >= 0 && diff < 7; }).length} />
             </div>
-            {workouts.length === 0 && <div style={{ textAlign: "center", padding: "56px 0", color: C.muted }}><p style={{ fontSize: 40, margin: "0 0 10px" }}>🏋️</p><p style={{ margin: 0 }}>No workouts yet.</p></div>}
-            {[...workouts].sort((a, b) => b.date.localeCompare(a.date)).map((wkt) => {
+            {seasons.length > 0 && (
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 16 }}>
+                {["All", ...seasons].map((s) => (
+                  <button key={s} onClick={() => setSeasonFilter(s)} style={{ border: `1px solid ${seasonFilter === s ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: seasonFilter === s ? C.tealGlow : "transparent", color: seasonFilter === s ? C.teal : C.mutedUp }}>{s}{s !== "All" && ` (${workouts.filter((w) => w.season === s).length})`}</button>
+                ))}
+              </div>
+            )}
+            {seasonWorkouts.length === 0 && <div style={{ textAlign: "center", padding: "56px 0", color: C.muted }}><p style={{ fontSize: 40, margin: "0 0 10px" }}>🏋️</p><p style={{ margin: 0 }}>{workouts.length === 0 ? "No workouts yet." : "No workouts in this season."}</p></div>}
+            {[...seasonWorkouts].sort((a, b) => b.date.localeCompare(a.date)).map((wkt) => {
               const totalEx = wkt.blocks?.reduce((s, b) => s + b.exercises.length, 0) || 0;
               const supersetCount = wkt.blocks?.reduce((s, b) => { const p = new Set(b.exercises.filter((e) => e.pairId).map((e) => e.pairId)); return s + p.size; }, 0) || 0;
               const wktLogs = logs.filter((l) => l.workoutId === wkt.id);
@@ -258,7 +270,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
 
       </div>
 
-      {showBuilder && <BuilderModal athletes={athletes} onSave={async (wkt) => { await onSaveWorkout(wkt); setShowBuilder(false); setEditWkt(null); }} onClose={() => { setShowBuilder(false); setEditWkt(null); }} editWkt={editWkt} />}
+      {showBuilder && <BuilderModal athletes={athletes} defaultSeason={latestSeason} onSave={async (wkt) => { await onSaveWorkout(wkt); setShowBuilder(false); setEditWkt(null); }} onClose={() => { setShowBuilder(false); setEditWkt(null); }} editWkt={editWkt} />}
       {editAthlete && <EditAthleteModal athlete={editAthlete} onSave={async (updated) => { await onUpdateAthlete(updated); setEditAthlete(null); if (selectedAthlete?.id === updated.id) setSelectedAthlete(updated); }} onArchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: true }); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onUnarchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: false }); setEditAthlete(null); }} onDelete={async () => { await onDeleteAthlete(editAthlete.id); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onClose={() => setEditAthlete(null)} />}
       {sessionDetail && <SessionDetailModal log={sessionDetail.log} workout={sessionDetail.workout} athlete={sessionDetail.athlete} onClose={() => setSessionDetail(null)} />}
       {showTestEntry && <TestScoreModal athletes={athletes} onSave={async (score) => { await onSaveTestScore(score); setShowTestEntry(false); }} onClose={() => setShowTestEntry(false)} />}
