@@ -3,7 +3,7 @@ import { C, STROKES, DISTANCES } from "../constants";
 import { Btn } from "./common";
 
 // ─── EDIT ATHLETE MODAL ───────────────────────────────────────────────────────
-function EditAthleteModal({ athlete, onSave, onArchive, onDelete, onUnarchive, onClose }) {
+function EditAthleteModal({ athlete, allTags = [], onSave, onArchive, onDelete, onUnarchive, onClose }) {
   const [eName, setEName] = useState(athlete.name);
   const [eEvent, setEEvent] = useState(athlete.event || "");
   const [ePin, setEPin] = useState(""); // blank = keep current PIN (PINs are auth passwords now)
@@ -12,11 +12,19 @@ function EditAthleteModal({ athlete, onSave, onArchive, onDelete, onUnarchive, o
   const [eGrade, setEGrade] = useState(athlete.grade || "");
   const [eStroke, setEStroke] = useState(athlete.stroke || "");
   const [eDistance, setEDistance] = useState(athlete.distance || "");
+  const [eTags, setETags] = useState(athlete.tags || []);
+  const [tagInput, setTagInput] = useState("");
+  const addTag = () => {
+    const t = tagInput.trim();
+    if (!t || eTags.some((x) => x.toLowerCase() === t.toLowerCase())) { setTagInput(""); return; }
+    setETags([...eTags, t]);
+    setTagInput("");
+  };
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const isArchived = !!athlete.archived;
   const GRADES = ["6th","7th","8th","9th","10th","11th","12th"];
-  const handleSave = async () => { if (!eName) return; setSaving(true); await onSave({ ...athlete, name: eName, event: eEvent, pin: ePin.trim() || null, champTag: eTag, school: eSchool, grade: eGrade, stroke: eStroke, distance: eDistance }); setSaving(false); };
+  const handleSave = async () => { if (!eName) return; setSaving(true); await onSave({ ...athlete, name: eName, event: eEvent, pin: ePin.trim() || null, champTag: eTag, school: eSchool, grade: eGrade, stroke: eStroke, distance: eDistance, tags: eTags }); setSaving(false); };
   const inp = { background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -39,6 +47,24 @@ function EditAthleteModal({ athlete, onSave, onArchive, onDelete, onUnarchive, o
             </div>
           </div>
         ))}
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 8 }}>TAGS</label>
+          {eTags.length > 0 && (
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
+              {eTags.map((t) => (
+                <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: C.teal, background: C.tealGlow, border: `1px solid ${C.border}`, borderRadius: 14, padding: "3px 6px 3px 10px" }}>
+                  🏷 {t}
+                  <button onClick={() => setETags(eTags.filter((x) => x !== t))} aria-label={`Remove ${t}`} style={{ background: "none", border: "none", color: C.teal, fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 6 }}>
+            <input value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTag()} list="tagbank-edit" placeholder="e.g. aug-clinic" style={{ ...inp, flex: 1 }} />
+            <datalist id="tagbank-edit">{allTags.filter((t) => !eTags.includes(t)).map((t) => <option key={t} value={t} />)}</datalist>
+            <Btn variant="ghost" small onClick={addTag} disabled={!tagInput.trim()}>+ Add</Btn>
+          </div>
+        </div>
         <div style={{ marginBottom: 18 }}>
           <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>CHAMPIONSHIP TAG</label>
           <div style={{ display: "flex", gap: 8 }}>

@@ -11,7 +11,7 @@ import { TestScoreModal } from "./TestScoreModal";
 import { Avatar, Btn, StatCard } from "./common";
 
 // ─── COACH APP ────────────────────────────────────────────────────────────────
-function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onSaveTestScore, onLogout }) {
+function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onSaveTestScore, onBulkTag, onLogout }) {
   const [tab, setTab] = useState("workouts");
   const [showBuilder, setShowBuilder] = useState(false);
   const [editWkt, setEditWkt] = useState(null);
@@ -27,6 +27,9 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
   const [rosterSearch, setRosterSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [seasonFilter, setSeasonFilter] = useState("All");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkTag, setBulkTag] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
   // Distinct seasons, newest first (ordered by each season's most recent workout date).
   const seasons = [...new Set([...workouts].sort((a, b) => b.date.localeCompare(a.date)).map((w) => w.season).filter(Boolean))];
   const latestSeason = seasons[0] || "";
@@ -37,6 +40,17 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
 
   const activeAthletes = athletes.filter((a) => !a.archived);
   const rosterSpecialties = [...STROKES.map((s) => ["stroke", s, "🏊"]), ...DISTANCES.map((d) => ["distance", d, "⏱"])].filter(([f, v]) => activeAthletes.some((a) => a[f] === v));
+  // Custom tags: an athlete can carry any number, alongside pool group + champ tag.
+  const allTags = [...new Set(athletes.flatMap((a) => a.tags || []))].sort();
+  const rosterTags = allTags.filter((t) => activeAthletes.some((a) => a.tags?.includes(t)));
+  const toggleSelect = (id) => setSelectedIds((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+  const applyBulkTag = async (mode) => {
+    if (!bulkTag.trim() || !selectedIds.length) return;
+    setBulkBusy(true);
+    const ok = await onBulkTag(selectedIds, bulkTag.trim(), mode);
+    setBulkBusy(false);
+    if (ok) setBulkTag("");
+  };
   const archivedAthletes = athletes.filter((a) => a.archived);
 
   const applyFilter = (list) => {
@@ -46,6 +60,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
       else if (schools.includes(rosterFilter)) result = result.filter((a) => a.school === rosterFilter);
       else if (STROKES.includes(rosterFilter)) result = result.filter((a) => a.stroke === rosterFilter);
       else if (DISTANCES.includes(rosterFilter)) result = result.filter((a) => a.distance === rosterFilter);
+      else if (allTags.includes(rosterFilter)) result = result.filter((a) => a.tags?.includes(rosterFilter));
       else result = result.filter((a) => a.event === rosterFilter);
     }
     if (rosterSearch) result = result.filter((a) => a.name.toLowerCase().includes(rosterSearch.toLowerCase()) || a.school?.toLowerCase().includes(rosterSearch.toLowerCase()));
@@ -146,13 +161,26 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
               {champTags.map((tag) => <button key={tag} onClick={() => setRosterFilter(tag)} style={{ border: `1px solid ${rosterFilter === tag ? C.gold : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === tag ? `${C.gold}22` : "transparent", color: rosterFilter === tag ? C.gold : C.mutedUp }}>🏆 {tag} ({activeAthletes.filter((a) => a.champTag === tag).length})</button>)}
               {rosterSpecialties.length > 0 && <div style={{ width: 1, background: C.border, margin: "0 3px" }} />}
               {rosterSpecialties.map(([field, val, icon]) => <button key={field + val} onClick={() => setRosterFilter(val)} style={{ border: `1px solid ${rosterFilter === val ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === val ? C.tealGlow : "transparent", color: rosterFilter === val ? C.teal : C.mutedUp }}>{icon} {val} ({activeAthletes.filter((a) => a[field] === val).length})</button>)}
+              {rosterTags.length > 0 && <div style={{ width: 1, background: C.border, margin: "0 3px" }} />}
+              {rosterTags.map((t) => <button key={"tag-" + t} onClick={() => setRosterFilter(t)} style={{ border: `1px solid ${rosterFilter === t ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === t ? C.tealGlow : "transparent", color: rosterFilter === t ? C.teal : C.mutedUp }}>🏷 {t} ({activeAthletes.filter((a) => a.tags?.includes(t)).length})</button>)}
             </div>
+            {selectedIds.length > 0 && (
+              <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 12, padding: "10px 14px", marginBottom: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.teal, whiteSpace: "nowrap" }}>{selectedIds.length} selected</span>
+                <input value={bulkTag} onChange={(e) => setBulkTag(e.target.value)} list="tagbank-bulk" placeholder="tag, e.g. aug-clinic" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "6px 10px", fontSize: 13, fontFamily: "inherit", flex: 1, minWidth: 140 }} />
+                <datalist id="tagbank-bulk">{allTags.map((t) => <option key={t} value={t} />)}</datalist>
+                <Btn small onClick={() => applyBulkTag("add")} disabled={!bulkTag.trim() || bulkBusy}>{bulkBusy ? "Working…" : "Add tag to selected"}</Btn>
+                <Btn small variant="ghost" onClick={() => applyBulkTag("remove")} disabled={!bulkTag.trim() || bulkBusy}>Remove tag from selected</Btn>
+                <button onClick={() => setSelectedIds([])} style={{ background: "none", border: "none", color: C.muted, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Clear</button>
+              </div>
+            )}
             {filteredAthletes.length === 0 && <p style={{ color: C.muted, textAlign: "center", padding: "32px 0" }}>No athletes match this filter.</p>}
             {filteredAthletes.map((a) => {
               const aWkts = workouts.filter((w) => w.assignees?.includes(a.id));
               const aLogs = logs.filter((l) => l.athleteId === a.id);
               return (
-                <div key={a.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+                <div key={a.id} style={{ background: C.surface, border: `1px solid ${selectedIds.includes(a.id) ? C.borderBright : C.border}`, borderRadius: 14, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+                  <button onClick={() => toggleSelect(a.id)} aria-label={`Select ${a.name}`} style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${selectedIds.includes(a.id) ? C.teal : C.muted}`, background: selectedIds.includes(a.id) ? C.teal : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>{selectedIds.includes(a.id) && <span style={{ color: C.bg, fontSize: 11, fontWeight: 900 }}>✓</span>}</button>
                   <div onClick={() => setSelectedAthlete(a)} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, cursor: "pointer" }}>
                     <Avatar name={a.name} size={42} />
                     <div style={{ flex: 1 }}>
@@ -160,6 +188,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
                         <p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 14 }}>{a.name}</p>
                         {a.champTag && <span style={{ fontSize: 10, fontWeight: 700, color: C.gold, background: `${C.gold}1A`, border: `1px solid ${C.gold}44`, borderRadius: 10, padding: "1px 6px" }}>🏆 {a.champTag}</span>}
                         {a.grade && <span style={{ fontSize: 10, color: C.mutedUp, background: C.surfaceUp, borderRadius: 10, padding: "1px 6px" }}>{a.grade}</span>}
+                        {(a.tags || []).map((t) => <span key={t} style={{ fontSize: 10, fontWeight: 700, color: C.teal, background: C.tealGlow, border: `1px solid ${C.border}`, borderRadius: 10, padding: "1px 6px" }}>🏷 {t}</span>)}
                       </div>
                       <p style={{ margin: "2px 0 0", color: C.muted, fontSize: 11 }}>{[a.event || "No group", a.school, a.stroke, a.distance].filter(Boolean).join(" · ")}</p>
                     </div>
@@ -271,7 +300,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
       </div>
 
       {showBuilder && <BuilderModal athletes={athletes} defaultSeason={latestSeason} onSave={async (wkt) => { await onSaveWorkout(wkt); setShowBuilder(false); setEditWkt(null); }} onClose={() => { setShowBuilder(false); setEditWkt(null); }} editWkt={editWkt} />}
-      {editAthlete && <EditAthleteModal athlete={editAthlete} onSave={async (updated) => { await onUpdateAthlete(updated); setEditAthlete(null); if (selectedAthlete?.id === updated.id) setSelectedAthlete(updated); }} onArchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: true }); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onUnarchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: false }); setEditAthlete(null); }} onDelete={async () => { await onDeleteAthlete(editAthlete.id); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onClose={() => setEditAthlete(null)} />}
+      {editAthlete && <EditAthleteModal athlete={editAthlete} allTags={allTags} onSave={async (updated) => { await onUpdateAthlete(updated); setEditAthlete(null); if (selectedAthlete?.id === updated.id) setSelectedAthlete(updated); }} onArchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: true }); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onUnarchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: false }); setEditAthlete(null); }} onDelete={async () => { await onDeleteAthlete(editAthlete.id); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onClose={() => setEditAthlete(null)} />}
       {sessionDetail && <SessionDetailModal log={sessionDetail.log} workout={sessionDetail.workout} athlete={sessionDetail.athlete} onClose={() => setSessionDetail(null)} />}
       {showTestEntry && <TestScoreModal athletes={athletes} onSave={async (score) => { await onSaveTestScore(score); setShowTestEntry(false); }} onClose={() => setShowTestEntry(false)} />}
     </div>

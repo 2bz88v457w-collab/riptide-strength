@@ -188,6 +188,25 @@ export default function App() {
     return true;
   }, []);
 
+  // Bulk add/remove one tag across many athletes. Tags don't touch auth
+  // credentials, so these are direct row updates (no edge function needed).
+  const bulkTagAthletes = useCallback(async (ids, tag, mode) => {
+    const t = tag.trim();
+    if (!t || !ids.length) return false;
+    const targets = athletes.filter((a) => ids.includes(a.id));
+    const results = await Promise.all(targets.map(async (a) => {
+      const has = (a.tags || []).includes(t);
+      if (mode === "add" ? has : !has) return { id: a.id, tags: a.tags || [], ok: true }; // already in desired state
+      const tags = mode === "add" ? [...(a.tags || []), t] : (a.tags || []).filter((x) => x !== t);
+      const { error } = await supabase.from("athletes").update({ tags }).eq("id", a.id);
+      return { id: a.id, tags, ok: !error, error };
+    }));
+    setAthletes((as) => as.map((a) => { const r = results.find((x) => x.id === a.id && x.ok); return r ? { ...a, tags: r.tags } : a; }));
+    const failed = results.filter((r) => !r.ok);
+    if (failed.length) { reportDbError(`Tagging ${failed.length} athlete${failed.length > 1 ? "s" : ""}`, failed[0].error); return false; }
+    return true;
+  }, [athletes]);
+
   // Athletes update their own row directly (RLS allows own-row updates).
   const updateAthleteProfile = useCallback(async (athlete) => {
     const { error } = await supabase.from("athletes").update(athlete).eq("id", athlete.id);
@@ -203,7 +222,7 @@ export default function App() {
   if (loading) return <LoadingScreen />;
 
   const role = sessionRole(authSession);
-  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onSaveTestScore={saveTestScore} onLogout={handleLogout} />;
+  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onSaveTestScore={saveTestScore} onBulkTag={bulkTagAthletes} onLogout={handleLogout} />;
 
   const me = athletes.find((a) => a.user_id === authSession.user.id);
   if (!me) return (

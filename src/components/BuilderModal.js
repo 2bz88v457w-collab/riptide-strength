@@ -52,6 +52,9 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
   const selectByField = (field, value) => { const ids = athletes.filter((a) => a[field] === value).map((a) => a.id); const allOn = ids.length > 0 && ids.every((id) => assignees.includes(id)); setAssignees((a) => allOn ? a.filter((x) => !ids.includes(x)) : [...new Set([...a, ...ids])]); };
   // Stroke/distance quick-select groups — only ones at least one athlete has set.
   const specialtyGroups = [...STROKES.map((s) => ["stroke", s, "🏊"]), ...DISTANCES.map((d) => ["distance", d, "⏱"])].filter(([f, v]) => athletes.some((a) => a[f] === v));
+  // Custom tags as one-tap assignment groups.
+  const tagGroups = [...new Set(athletes.flatMap((a) => a.tags || []))].sort();
+  const selectTagGroup = (t) => { const ids = athletes.filter((a) => a.tags?.includes(t)).map((a) => a.id); const allOn = ids.length > 0 && ids.every((id) => assignees.includes(id)); setAssignees((a) => allOn ? a.filter((x) => !ids.includes(x)) : [...new Set([...a, ...ids])]); };
   const handleGen = async () => {
     const target = athletes.find((a) => assignees.includes(a.id)) || athletes[0];
     if (!target) return;
@@ -111,6 +114,14 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
                   <button key={field + val} onClick={() => selectByField(field, val)} style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: allOn ? C.tealGlow : "transparent", border: `1px solid ${allOn || someOn ? C.teal : "transparent"}`, borderRadius: 7, padding: "6px 8px", cursor: "pointer", marginBottom: 3, fontFamily: "inherit" }}>
                     <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${allOn || someOn ? C.teal : C.muted}`, background: allOn ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{allOn && <span style={{ color: C.bg, fontSize: 9, fontWeight: 900 }}>✓</span>}{someOn && !allOn && <span style={{ color: C.teal, fontSize: 11, lineHeight: 1 }}>–</span>}</div>
                     <span style={{ fontSize: 12, color: allOn ? C.teal : C.white, flex: 1, textAlign: "left" }}>{icon} {val}</span>
+                    <span style={{ fontSize: 10, color: C.muted }}>{gIds.length}</span>
+                  </button>
+                ); })}
+                {tagGroups.length > 0 && <div style={{ height: 1, background: C.border, margin: "4px 0", gridColumn: "1/-1" }} />}
+                {tagGroups.map((t) => { const gIds = athletes.filter((a) => a.tags?.includes(t)).map((a) => a.id); const allOn = gIds.length > 0 && gIds.every((id) => assignees.includes(id)); const someOn = gIds.some((id) => assignees.includes(id)); return (
+                  <button key={"tag-" + t} onClick={() => selectTagGroup(t)} style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: allOn ? C.tealGlow : "transparent", border: `1px solid ${allOn || someOn ? C.teal : "transparent"}`, borderRadius: 7, padding: "6px 8px", cursor: "pointer", marginBottom: 3, fontFamily: "inherit" }}>
+                    <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${allOn || someOn ? C.teal : C.muted}`, background: allOn ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{allOn && <span style={{ color: C.bg, fontSize: 9, fontWeight: 900 }}>✓</span>}{someOn && !allOn && <span style={{ color: C.teal, fontSize: 11, lineHeight: 1 }}>–</span>}</div>
+                    <span style={{ fontSize: 12, color: allOn ? C.teal : C.white, flex: 1, textAlign: "left" }}>🏷 {t}</span>
                     <span style={{ fontSize: 10, color: C.muted }}>{gIds.length}</span>
                   </button>
                 ); })}
