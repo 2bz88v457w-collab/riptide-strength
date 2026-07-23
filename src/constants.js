@@ -109,7 +109,7 @@ const EXERCISE_CATEGORIES = {
     "Med Ball Rotational Throw", "Med Ball Slam", "Mountain Climber", "Opposite Bridge", "Opposite Plank",
     "Opposite V-up", "Pallof Press", "Plank Adduction + MB-Pad", "Plank Row + DB", "Plank Shoulder Taps",
     "Plank Side Tuck + TRX", "Plank Swings + TRX", "Plank to Pike + TRX", "Plank Tuck + TRX", "PNF + Cable",
-    "Pullover + DB", "Push Pull + Cable", "Quadraped Opposite", "Quadruped Med Ball Twist", "Renegade Row + DB",
+    "Pullover + DB", "Push Pull + Cable", "Quadruped Opposite", "Quadruped Med Ball Twist", "Renegade Row + DB",
     "Reverse Crunch", "Reverse Russian Twist", "Reverse Woodchop + Cable", "Rock the Boat", "Rollout + Ab Wheel",
     "Rollout + TRX", "Russian Twist + MB", "Seated Leg Circles", "Short Side Bridge", "Shot Put Throw + MB",
     "Side Bridge", "Side Throw + MB", "Side Throw with Step + MB", "Side Tuck + TRX", "Single-leg Floor Bridge",
