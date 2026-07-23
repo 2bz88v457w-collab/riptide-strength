@@ -151,7 +151,7 @@ const EXERCISE_CATEGORIES = {
     "Overhead Squat X-Walk + Band", "Pike Push-up", "Piriformis + Foam Roll", "Piriformis Lying",
     "Piriformis Stretch", "Piriformis Stretch + Bench", "Plank Adduction + MB-Pad", "Plank Shoulder Taps",
     "Prisoner Squat", "Push ups", "Push-up Hold", "Push-up Shoulder Taps", "Push-up to Twist", "Push-up Walk",
-    "Quadraped Opposite", "Quads + Foam Roll", "Quick Feet", "Quick Feet with Slow Arms", "Rear-Foot-Elevated Squat",
+    "Quadruped Opposite", "Quads + Foam Roll", "Quick Feet", "Quick Feet with Slow Arms", "Rear-Foot-Elevated Squat",
     "Reverse Bear Crawl", "Reverse Crunch", "Reverse High Bear Crawl", "Reverse Lunge",
     "Reverse Lunge & Twist – Dynamic", "Reverse Lunge Combo", "Reverse Russian Twist", "Reverse Single-leg Layout",
     "Reverse Spiderman", "Rock the Boat", "Roll Back to Stand", "Rotational Squat", "Roundoff", "Run & Jump",
