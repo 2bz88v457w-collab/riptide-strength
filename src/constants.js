@@ -6,7 +6,9 @@ const C = {
   white: "#F0F6FC", muted: "#5D7BA0", mutedUp: "#7E9CC2",
 };
 
+// Cycled by index, so workouts can have any number of blocks.
 const BLOCK_COLORS = [C.teal, C.gold, "#A78BFA", C.red, C.mutedUp];
+const blockColor = (i) => BLOCK_COLORS[i % BLOCK_COLORS.length];
 const BLOCKS = ["Warm-up", "Block 1", "Block 2", "Block 3", "Cool Down"];
 // Exercise library grouped by movement function. A move can belong to several
 // types (e.g. Renegade Row + DB is PULL, PUSH, and BRACE). FUNCTION is mobility /
@@ -219,4 +221,4 @@ const PERFORMANCE_TESTS = [
   { key: "gutPunch", label: "Gut Punch Breathing (self-test)", unit: "score" },
 ];
 
-export { ASSESSMENT_MAX, ASSESSMENT_MOVEMENTS, BLOCKS, BLOCK_COLORS, C, DISTANCES, EXERCISE_BANK, EXERCISE_CATEGORIES, EXERCISE_TYPES, PERFORMANCE_TESTS, REQUIRED_MOVE_TYPES, STROKES, TEST_METRICS };
+export { ASSESSMENT_MAX, ASSESSMENT_MOVEMENTS, BLOCKS, BLOCK_COLORS, blockColor, C, DISTANCES, EXERCISE_BANK, EXERCISE_CATEGORIES, EXERCISE_TYPES, PERFORMANCE_TESTS, REQUIRED_MOVE_TYPES, STROKES, TEST_METRICS };

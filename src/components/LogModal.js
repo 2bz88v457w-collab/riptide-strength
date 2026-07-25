@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C, BLOCK_COLORS } from "../constants";
+import { C, blockColor } from "../constants";
 import { fmtDate, getSupersetLabels, getLastSets, parseLoadNum, getProgressionFill, getBestLoad } from "../helpers";
 import { Btn } from "./common";
 
@@ -134,8 +134,8 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
           return (
             <div key={block.id} style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <div style={{ width: 3, height: 14, borderRadius: 2, background: BLOCK_COLORS[bi] || C.muted }} />
-                <span style={{ fontSize: 11, fontWeight: 800, color: BLOCK_COLORS[bi] || C.muted, textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span>
+                <div style={{ width: 3, height: 14, borderRadius: 2, background: blockColor(bi) }} />
+                <span style={{ fontSize: 11, fontWeight: 800, color: blockColor(bi), textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span>
                 {blockComplete && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 800, color: C.teal, background: C.tealGlow, border: `1px solid ${C.teal}55`, borderRadius: 20, padding: "1px 8px" }}>✓ Complete</span>}
               </div>
               {rendered}

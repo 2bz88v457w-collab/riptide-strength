@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C, BLOCK_COLORS, REQUIRED_MOVE_TYPES, EXERCISE_BANK, STROKES, DISTANCES } from "../constants";
+import { C, blockColor, REQUIRED_MOVE_TYPES, EXERCISE_BANK, STROKES, DISTANCES } from "../constants";
 import { getMoveTypes, getWorkoutMoveTypes, uid, today, getSupersetLabels, initBlocks, emptyEx } from "../helpers";
 import { useIsNarrow } from "../hooks";
 import { generateWorkout } from "../ai";
@@ -30,6 +30,25 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
   const updEx = (bi, ei, ex) => setBlocks((bs) => bs.map((b, i) => i === bi ? { ...b, exercises: b.exercises.map((e, j) => j === ei ? ex : e) } : b));
   const remEx = (bi, ei) => setBlocks((bs) => bs.map((b, i) => { if (i !== bi) return b; const removed = b.exercises[ei]; return { ...b, exercises: b.exercises.filter((_, j) => j !== ei).map((e) => e.pairId && e.pairId === removed?.pairId ? { ...e, pairId: null } : e) }; }));
   const addMoves = (bi, names) => setBlocks((bs) => bs.map((b, i) => i === bi ? { ...b, exercises: [...b.exercises, ...names.map((n) => ({ ...emptyEx(), name: n }))] } : b));
+  const renameBlock = (bi, name) => setBlocks((bs) => bs.map((b, i) => i === bi ? { ...b, name } : b));
+  const addBlock = () => setBlocks((bs) => {
+    // Name the new one "Block N" continuing from the highest existing number.
+    const maxN = bs.reduce((m, b) => { const hit = /^Block (\d+)$/.exec(b.name?.trim() || ""); return hit ? Math.max(m, parseInt(hit[1])) : m; }, 0);
+    return [...bs, { id: uid(), name: `Block ${maxN + 1}`, exercises: [] }];
+  });
+  // Move a block (with its exercises) up or down; dir is -1 or +1.
+  const moveBlock = (bi, dir) => setBlocks((bs) => {
+    const to = bi + dir;
+    if (to < 0 || to >= bs.length) return bs;
+    const next = [...bs];
+    [next[bi], next[to]] = [next[to], next[bi]];
+    return next;
+  });
+  const removeBlock = (bi) => setBlocks((bs) => {
+    const b = bs[bi];
+    if (b.exercises.length && !window.confirm(`Remove "${b.name || "this block"}" and its ${b.exercises.length} exercise${b.exercises.length !== 1 ? "s" : ""}?`)) return bs;
+    return bs.filter((_, i) => i !== bi);
+  });
   const handlePair = (bi, exId) => setPairTarget({ bi, exId });
   const handlePickPair = (partnerId) => {
     if (!pairTarget) return;
@@ -193,12 +212,19 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
           });
           return (
             <div key={block.id} style={{ marginBottom: 22 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}><div style={{ width: 3, height: 16, borderRadius: 2, background: BLOCK_COLORS[bi] || C.muted }} /><span style={{ fontSize: 12, fontWeight: 800, color: BLOCK_COLORS[bi] || C.muted, textTransform: "uppercase", letterSpacing: ".05em" }}>{block.name}</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <div style={{ width: 3, height: 16, borderRadius: 2, background: blockColor(bi), flexShrink: 0 }} />
+                <input value={block.name} onChange={(e) => renameBlock(bi, e.target.value)} placeholder="Block name" title="Rename this block" style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: blockColor(bi), fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".05em", fontFamily: "inherit", padding: "4px 8px", minWidth: 0, width: isNarrow ? "100%" : 240 }} />
+                <button onClick={() => moveBlock(bi, -1)} disabled={bi === 0} title="Move block up" style={{ background: "none", border: "none", color: bi === 0 ? C.border : C.muted, fontSize: 12, cursor: bi === 0 ? "default" : "pointer", padding: "0 2px", lineHeight: 1, flexShrink: 0 }}>▲</button>
+                <button onClick={() => moveBlock(bi, 1)} disabled={bi === blocks.length - 1} title="Move block down" style={{ background: "none", border: "none", color: bi === blocks.length - 1 ? C.border : C.muted, fontSize: 12, cursor: bi === blocks.length - 1 ? "default" : "pointer", padding: "0 2px", lineHeight: 1, flexShrink: 0 }}>▼</button>
+                <button onClick={() => removeBlock(bi)} title="Remove block" style={{ background: "none", border: "none", color: C.muted, fontSize: 17, cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+              </div>
               {rendered}
               <button onClick={() => setPickerBlock(bi)} style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 7, color: C.muted, fontSize: 12, padding: "5px 14px", cursor: "pointer", marginTop: 4, fontFamily: "inherit" }}>+ Add exercise</button>
             </div>
           );
         })}
+        <button onClick={addBlock} style={{ background: "none", border: `1px dashed ${C.borderBright}`, borderRadius: 9, color: C.teal, fontSize: 13, fontWeight: 700, padding: "9px 16px", cursor: "pointer", fontFamily: "inherit", width: "100%", marginBottom: 4 }}>+ Add block</button>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8, borderTop: `1px solid ${C.border}`, paddingTop: 18 }}>
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
           <Btn onClick={handleSave} disabled={!title || assignees.length === 0 || saving}>{saving ? "Saving…" : `Save workout (${assignees.length} athlete${assignees.length !== 1 ? "s" : ""})`}</Btn>

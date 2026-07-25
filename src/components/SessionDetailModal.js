@@ -1,4 +1,4 @@
-import { C, BLOCK_COLORS } from "../constants";
+import { C, blockColor } from "../constants";
 import { fmtDate, getSupersetLabels } from "../helpers";
 import { Btn } from "./common";
 
@@ -49,7 +49,7 @@ function SessionDetailModal({ log, workout, athlete, onClose }) {
           });
           return (
             <div key={block.id} style={{ marginBottom: 18 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}><div style={{ width: 3, height: 14, borderRadius: 2, background: BLOCK_COLORS[bi] || C.muted }} /><span style={{ fontSize: 11, fontWeight: 800, color: BLOCK_COLORS[bi] || C.muted, textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}><div style={{ width: 3, height: 14, borderRadius: 2, background: blockColor(bi) }} /><span style={{ fontSize: 11, fontWeight: 800, color: blockColor(bi), textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span></div>
               {rendered}
               {log.blockNotes?.[block.id] && <p style={{ margin: "6px 0 0", fontSize: 12, color: C.mutedUp, fontStyle: "italic", background: C.bg, borderRadius: 7, padding: "6px 10px" }}>"{log.blockNotes[block.id]}"</p>}
             </div>
