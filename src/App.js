@@ -195,9 +195,9 @@ export default function App() {
     if (!t || !ids.length) return false;
     const targets = athletes.filter((a) => ids.includes(a.id));
     const results = await Promise.all(targets.map(async (a) => {
-      const has = (a.tags || []).includes(t);
-      if (mode === "add" ? has : !has) return { id: a.id, tags: a.tags || [], ok: true }; // already in desired state
-      const tags = mode === "add" ? [...(a.tags || []), t] : (a.tags || []).filter((x) => x !== t);
+      const has = (a.tags ?? []).includes(t);
+      if (mode === "add" ? has : !has) return { id: a.id, tags: a.tags ?? [], ok: true }; // already in desired state
+      const tags = mode === "add" ? [...(a.tags ?? []), t] : (a.tags ?? []).filter((x) => x !== t);
       const { error } = await supabase.from("athletes").update({ tags }).eq("id", a.id);
       return { id: a.id, tags, ok: !error, error };
     }));

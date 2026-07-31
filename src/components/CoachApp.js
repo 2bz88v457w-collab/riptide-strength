@@ -27,6 +27,11 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
   const [rosterSearch, setRosterSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [seasonFilter, setSeasonFilter] = useState("All");
+  // Tag filters are multi-select with OR semantics (an athlete matches if they
+  // carry ANY selected tag), and they narrow within the single-select filter
+  // above (group / school / champ / stroke / distance).
+  const [tagFilters, setTagFilters] = useState([]);
+  const toggleTagFilter = (t) => setTagFilters((f) => f.includes(t) ? f.filter((x) => x !== t) : [...f, t]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkTag, setBulkTag] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -41,8 +46,8 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
   const activeAthletes = athletes.filter((a) => !a.archived);
   const rosterSpecialties = [...STROKES.map((s) => ["stroke", s, "🏊"]), ...DISTANCES.map((d) => ["distance", d, "⏱"])].filter(([f, v]) => activeAthletes.some((a) => a[f] === v));
   // Custom tags: an athlete can carry any number, alongside pool group + champ tag.
-  const allTags = [...new Set(athletes.flatMap((a) => a.tags || []))].sort();
-  const rosterTags = allTags.filter((t) => activeAthletes.some((a) => a.tags?.includes(t)));
+  const allTags = [...new Set(athletes.flatMap((a) => a.tags ?? []))].sort();
+  const rosterTags = allTags.filter((t) => activeAthletes.some((a) => (a.tags ?? []).includes(t)));
   const toggleSelect = (id) => setSelectedIds((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
   const applyBulkTag = async (mode) => {
     if (!bulkTag.trim() || !selectedIds.length) return;
@@ -60,9 +65,9 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
       else if (schools.includes(rosterFilter)) result = result.filter((a) => a.school === rosterFilter);
       else if (STROKES.includes(rosterFilter)) result = result.filter((a) => a.stroke === rosterFilter);
       else if (DISTANCES.includes(rosterFilter)) result = result.filter((a) => a.distance === rosterFilter);
-      else if (allTags.includes(rosterFilter)) result = result.filter((a) => a.tags?.includes(rosterFilter));
       else result = result.filter((a) => a.event === rosterFilter);
     }
+    if (tagFilters.length) result = result.filter((a) => (a.tags ?? []).some((t) => tagFilters.includes(t)));
     if (rosterSearch) result = result.filter((a) => a.name.toLowerCase().includes(rosterSearch.toLowerCase()) || a.school?.toLowerCase().includes(rosterSearch.toLowerCase()));
     if (rosterSort === "alpha") result = [...result].sort((a, b) => a.name.localeCompare(b.name));
     else if (rosterSort === "group") result = [...result].sort((a, b) => (a.event || "").localeCompare(b.event || "") || a.name.localeCompare(b.name));
@@ -153,7 +158,9 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
               </div>
             </div>
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 18 }}>
-              <button onClick={() => setRosterFilter("All")} style={{ border: `1px solid ${rosterFilter === "All" ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === "All" ? C.tealGlow : "transparent", color: rosterFilter === "All" ? C.teal : C.mutedUp }}>All ({activeAthletes.length})</button>
+              {(() => { const showingAll = rosterFilter === "All" && !tagFilters.length; return (
+                <button onClick={() => { setRosterFilter("All"); setTagFilters([]); }} style={{ border: `1px solid ${showingAll ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: showingAll ? C.tealGlow : "transparent", color: showingAll ? C.teal : C.mutedUp }}>All ({activeAthletes.length})</button>
+              ); })()}
               {poolGroups.map((g) => <button key={g} onClick={() => setRosterFilter(g)} style={{ border: `1px solid ${rosterFilter === g ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === g ? C.tealGlow : "transparent", color: rosterFilter === g ? C.teal : C.mutedUp }}>{g} ({activeAthletes.filter((a) => a.event === g).length})</button>)}
               {schools.length > 0 && <div style={{ width: 1, background: C.border, margin: "0 3px" }} />}
               {schools.map((s) => <button key={s} onClick={() => setRosterFilter(s)} style={{ border: `1px solid ${rosterFilter === s ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === s ? C.tealGlow : "transparent", color: rosterFilter === s ? C.teal : C.mutedUp }}>{s.replace(" High School","").replace(" Middle School","")} ({activeAthletes.filter((a) => a.school === s).length})</button>)}
@@ -162,7 +169,8 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
               {rosterSpecialties.length > 0 && <div style={{ width: 1, background: C.border, margin: "0 3px" }} />}
               {rosterSpecialties.map(([field, val, icon]) => <button key={field + val} onClick={() => setRosterFilter(val)} style={{ border: `1px solid ${rosterFilter === val ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === val ? C.tealGlow : "transparent", color: rosterFilter === val ? C.teal : C.mutedUp }}>{icon} {val} ({activeAthletes.filter((a) => a[field] === val).length})</button>)}
               {rosterTags.length > 0 && <div style={{ width: 1, background: C.border, margin: "0 3px" }} />}
-              {rosterTags.map((t) => <button key={"tag-" + t} onClick={() => setRosterFilter(t)} style={{ border: `1px solid ${rosterFilter === t ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: rosterFilter === t ? C.tealGlow : "transparent", color: rosterFilter === t ? C.teal : C.mutedUp }}>🏷 {t} ({activeAthletes.filter((a) => a.tags?.includes(t)).length})</button>)}
+              {rosterTags.map((t) => { const on = tagFilters.includes(t); return <button key={"tag-" + t} onClick={() => toggleTagFilter(t)} title={on ? `Remove "${t}" from the filter` : `Add "${t}" to the filter (matches any selected tag)`} style={{ border: `1px solid ${on ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: on ? C.tealGlow : "transparent", color: on ? C.teal : C.mutedUp }}>{on ? "✓ " : "🏷 "}{t} ({activeAthletes.filter((a) => (a.tags ?? []).includes(t)).length})</button>; })}
+              {tagFilters.length > 1 && <span style={{ fontSize: 11, color: C.muted, alignSelf: "center" }}>any of {tagFilters.length} tags</span>}
             </div>
             {selectedIds.length > 0 && (
               <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 12, padding: "10px 14px", marginBottom: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -188,7 +196,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
                         <p style={{ margin: 0, fontWeight: 700, color: C.white, fontSize: 14 }}>{a.name}</p>
                         {a.champTag && <span style={{ fontSize: 10, fontWeight: 700, color: C.gold, background: `${C.gold}1A`, border: `1px solid ${C.gold}44`, borderRadius: 10, padding: "1px 6px" }}>🏆 {a.champTag}</span>}
                         {a.grade && <span style={{ fontSize: 10, color: C.mutedUp, background: C.surfaceUp, borderRadius: 10, padding: "1px 6px" }}>{a.grade}</span>}
-                        {(a.tags || []).map((t) => <span key={t} style={{ fontSize: 10, fontWeight: 700, color: C.teal, background: C.tealGlow, border: `1px solid ${C.border}`, borderRadius: 10, padding: "1px 6px" }}>🏷 {t}</span>)}
+                        {(a.tags ?? []).map((t) => <span key={t} style={{ fontSize: 10, fontWeight: 700, color: C.teal, background: C.tealGlow, border: `1px solid ${C.border}`, borderRadius: 10, padding: "1px 6px" }}>🏷 {t}</span>)}
                       </div>
                       <p style={{ margin: "2px 0 0", color: C.muted, fontSize: 11 }}>{[a.event || "No group", a.school, a.stroke, a.distance].filter(Boolean).join(" · ")}</p>
                     </div>
