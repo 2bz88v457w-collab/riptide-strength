@@ -31,6 +31,35 @@ test('season filter scopes sessions without touching the rest', () => {
   expect([...team[0].assigned].sort()).toEqual(['a1', 'a2']);
 });
 
+test('date range scopes sessions inclusively on both ends', () => {
+  // "Since short course started" — a from-date with no end.
+  const since = computeSessions(WORKOUTS, LOGS, { from: '2026-08-05' });
+  expect(since.map((s) => s.date)).toEqual(['2026-08-05']);        // Aug 3 excluded
+
+  // The from-date itself is included, not skipped.
+  expect(computeSessions(WORKOUTS, LOGS, { from: '2026-08-03' }).map((s) => s.date))
+    .toEqual(['2026-08-05', '2026-08-03']);
+
+  // to-date only, and a closed range.
+  expect(computeSessions(WORKOUTS, LOGS, { to: '2026-08-03' }).map((s) => s.date)).toEqual(['2026-08-03']);
+  expect(computeSessions(WORKOUTS, LOGS, { from: '2026-08-04', to: '2026-08-06' }).map((s) => s.date)).toEqual(['2026-08-05']);
+  expect(computeSessions(WORKOUTS, LOGS, { from: '2026-09-09' })).toEqual([]); // nothing yet this season
+});
+
+test('rollup reflects the date range, not lifetime history', () => {
+  const since = computeSessions(WORKOUTS, LOGS, { from: '2026-08-05' });
+  const rows = attendanceByAthlete(since, ATHLETES);
+  const byName = Object.fromEntries(rows.map((r) => [r.athlete.name, r]));
+  expect(byName.Ann).toMatchObject({ assigned: 1, attended: 0 });  // lifetime she is 1/2
+  expect(byName.Cara).toMatchObject({ assigned: 1, attended: 1 });
+  expect(byName.Ben).toBeUndefined();                              // no assigned sessions in range
+});
+
+test('date range and season filter combine', () => {
+  const s = computeSessions(WORKOUTS, LOGS, { season: '2026 Clinic', from: '2026-08-04' });
+  expect(s.map((x) => x.date)).toEqual(['2026-08-05']);
+});
+
 test('a log only counts when the athlete was actually assigned that day', () => {
   const strayLog = [...LOGS, { athleteId: 'a2', workoutId: 'w3' }]; // a2 isn't assigned to w3
   const aug5 = computeSessions(WORKOUTS, strayLog).find((x) => x.date === '2026-08-05');

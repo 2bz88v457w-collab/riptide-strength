@@ -10,6 +10,9 @@ function AttendanceTab({ athletes, workouts, logs }) {
   const [groupFilter, setGroupFilter] = useState("All");
   const [view, setView] = useState("athlete");
   const [openDate, setOpenDate] = useState(null);
+  // Inclusive date range; blank means open-ended on that side.
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
   const seasons = [...new Set([...workouts].sort((a, b) => b.date.localeCompare(a.date)).map((w) => w.season).filter(Boolean))];
   const poolGroups = [...new Set(athletes.map((a) => a.event).filter(Boolean))];
@@ -25,7 +28,7 @@ function AttendanceTab({ athletes, workouts, logs }) {
   const roster = athletes.filter(inGroup);
   const rosterIds = new Set(roster.map((a) => a.id));
 
-  const sessions = computeSessions(workouts, logs, { season: seasonFilter });
+  const sessions = computeSessions(workouts, logs, { season: seasonFilter, from, to });
   // Narrow each session to the filtered roster so counts match the group shown.
   const scoped = sessions.map((s) => ({
     ...s,
@@ -50,6 +53,7 @@ function AttendanceTab({ athletes, workouts, logs }) {
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Attendance</h1>
         <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>
           Based on logged sessions — an athlete counts as present if they logged a workout assigned that day.
+          {(from || to) && <span style={{ color: C.teal }}> Showing {from ? `from ${fmtDate(from)}` : "everything up to"}{to ? ` to ${fmtDate(to)}` : from ? " onward" : ` ${fmtDate(to)}`}.</span>}
         </p>
       </div>
 
@@ -69,6 +73,18 @@ function AttendanceTab({ athletes, workouts, logs }) {
           </div>
         </div>
       )}
+
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 10 }}>
+        <div>
+          <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".05em" }}>From</label>
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={{ background: C.surfaceUp, border: `1px solid ${from ? C.teal : C.border}`, borderRadius: 8, color: C.white, padding: "7px 10px", fontSize: 13, fontFamily: "inherit" }} />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".05em" }}>To</label>
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={{ background: C.surfaceUp, border: `1px solid ${to ? C.teal : C.border}`, borderRadius: 8, color: C.white, padding: "7px 10px", fontSize: 13, fontFamily: "inherit" }} />
+        </div>
+        {(from || to) && <button onClick={() => { setFrom(""); setTo(""); }} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, fontSize: 12, padding: "8px 12px", cursor: "pointer", fontFamily: "inherit" }}>Clear dates</button>}
+      </div>
 
       {seasons.length > 0 && (
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>

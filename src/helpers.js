@@ -147,8 +147,11 @@ function computePRs(athleteId, allLogs, allWorkouts) {
 // Attendance is derived from logs, not marked separately: an athlete counts as
 // present for a session date if they logged any workout assigned to them that
 // day. Sessions are dates that have at least one workout.
-function computeSessions(workouts, logs, { season } = {}) {
-  const wkts = season && season !== "All" ? workouts.filter((w) => w.season === season) : workouts;
+// from/to are inclusive ISO dates ("2026-09-09"); either may be omitted.
+function computeSessions(workouts, logs, { season, from, to } = {}) {
+  let wkts = season && season !== "All" ? workouts.filter((w) => w.season === season) : workouts;
+  if (from) wkts = wkts.filter((w) => w.date >= from);
+  if (to) wkts = wkts.filter((w) => w.date <= to);
   const byId = new Map(wkts.map((w) => [w.id, w]));
   const byDate = new Map();
   wkts.forEach((w) => {
