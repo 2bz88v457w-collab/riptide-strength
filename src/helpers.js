@@ -143,4 +143,42 @@ function computePRs(athleteId, allLogs, allWorkouts) {
   return prs;
 }
 
-export { assessmentCellKeys, computeMovementScore, computePRs, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };
+// ─── ATTENDANCE ───────────────────────────────────────────────────────────────
+// Attendance is derived from logs, not marked separately: an athlete counts as
+// present for a session date if they logged any workout assigned to them that
+// day. Sessions are dates that have at least one workout.
+function computeSessions(workouts, logs, { season } = {}) {
+  const wkts = season && season !== "All" ? workouts.filter((w) => w.season === season) : workouts;
+  const byId = new Map(wkts.map((w) => [w.id, w]));
+  const byDate = new Map();
+  wkts.forEach((w) => {
+    if (!byDate.has(w.date)) byDate.set(w.date, { date: w.date, titles: [], assigned: new Set(), present: new Set() });
+    const s = byDate.get(w.date);
+    s.titles.push(w.title);
+    (w.assignees ?? []).forEach((id) => s.assigned.add(id));
+  });
+  logs.forEach((l) => {
+    const w = byId.get(l.workoutId);
+    if (!w) return;
+    const s = byDate.get(w.date);
+    if (s && s.assigned.has(l.athleteId)) s.present.add(l.athleteId);
+  });
+  return [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+// Per-athlete rollup across sessions they were assigned to.
+function attendanceByAthlete(sessions, athletes) {
+  return athletes.map((a) => {
+    const assigned = sessions.filter((s) => s.assigned.has(a.id));
+    const attended = assigned.filter((s) => s.present.has(a.id));
+    return {
+      athlete: a,
+      assigned: assigned.length,
+      attended: attended.length,
+      rate: assigned.length ? attended.length / assigned.length : null,
+      missedDates: assigned.filter((s) => !s.present.has(a.id)).map((s) => s.date),
+    };
+  }).filter((r) => r.assigned > 0);
+}
+
+export { assessmentCellKeys, attendanceByAthlete, computeMovementScore, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };
