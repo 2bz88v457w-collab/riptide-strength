@@ -33,6 +33,10 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
   // above (group / school / champ / stroke / distance).
   const [tagFilters, setTagFilters] = useState([]);
   const toggleTagFilter = (t) => setTagFilters((f) => f.includes(t) ? f.filter((x) => x !== t) : [...f, t]);
+  const [logSearch, setLogSearch] = useState("");
+  const [logFrom, setLogFrom] = useState("");
+  const [logTo, setLogTo] = useState("");
+  const [logGroup, setLogGroup] = useState("All");
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkTag, setBulkTag] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -58,6 +62,24 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
     if (ok) setBulkTag("");
   };
   const archivedAthletes = athletes.filter((a) => a.archived);
+
+  // Logs tab filters: free-text (athlete or workout title), date range, group/tag.
+  const visibleLogs = [...logs].sort((a, b) => b.loggedAt - a.loggedAt).filter((l) => {
+    if (logFrom && l.date < logFrom) return false;
+    if (logTo && l.date > logTo) return false;
+    const ath = athletes.find((a) => a.id === l.athleteId);
+    if (logGroup !== "All") {
+      if (!ath) return false;
+      const matches = allTags.includes(logGroup) ? (ath.tags ?? []).includes(logGroup) : ath.event === logGroup;
+      if (!matches) return false;
+    }
+    if (logSearch) {
+      const q = logSearch.toLowerCase();
+      const title = workouts.find((w) => w.id === l.workoutId)?.title || "";
+      if (!(ath?.name.toLowerCase().includes(q) || title.toLowerCase().includes(q))) return false;
+    }
+    return true;
+  });
 
   const applyFilter = (list) => {
     let result = list;
@@ -273,9 +295,28 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
 
         {tab === "logs" && (
           <div>
-            <h1 style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 900, color: C.white }}>All session logs</h1>
+            <h1 style={{ margin: "0 0 6px", fontSize: 22, fontWeight: 900, color: C.white }}>All session logs</h1>
+            <p style={{ margin: "0 0 14px", color: C.muted, fontSize: 13 }}>{visibleLogs.length}{visibleLogs.length !== logs.length ? ` of ${logs.length}` : ""} session{logs.length !== 1 ? "s" : ""}</p>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 10 }}>
+              <input value={logSearch} onChange={(e) => setLogSearch(e.target.value)} placeholder="Search athlete or workout…" style={{ background: C.surfaceUp, border: `1px solid ${logSearch ? C.teal : C.border}`, borderRadius: 8, color: C.white, padding: "8px 12px", fontSize: 13, fontFamily: "inherit", flex: 1, minWidth: 180 }} />
+              <div>
+                <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".05em" }}>From</label>
+                <input type="date" value={logFrom} onChange={(e) => setLogFrom(e.target.value)} style={{ background: C.surfaceUp, border: `1px solid ${logFrom ? C.teal : C.border}`, borderRadius: 8, color: C.white, padding: "7px 10px", fontSize: 13, fontFamily: "inherit" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".05em" }}>To</label>
+                <input type="date" value={logTo} onChange={(e) => setLogTo(e.target.value)} style={{ background: C.surfaceUp, border: `1px solid ${logTo ? C.teal : C.border}`, borderRadius: 8, color: C.white, padding: "7px 10px", fontSize: 13, fontFamily: "inherit" }} />
+              </div>
+              {(logSearch || logFrom || logTo || logGroup !== "All") && <button onClick={() => { setLogSearch(""); setLogFrom(""); setLogTo(""); setLogGroup("All"); }} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, fontSize: 12, padding: "8px 12px", cursor: "pointer", fontFamily: "inherit" }}>Clear</button>}
+            </div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 16 }}>
+              {["All", ...poolGroups, ...allTags].map((g) => (
+                <button key={"lg-" + g} onClick={() => setLogGroup(g)} style={{ border: `1px solid ${logGroup === g ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: logGroup === g ? C.tealGlow : "transparent", color: logGroup === g ? C.teal : C.mutedUp }}>{allTags.includes(g) ? `🏷 ${g}` : g}</button>
+              ))}
+            </div>
             {logs.length === 0 && <p style={{ color: C.muted, textAlign: "center", padding: "48px 0" }}>No sessions logged yet.</p>}
-            {[...logs].sort((a, b) => b.loggedAt - a.loggedAt).map((log, i) => {
+            {logs.length > 0 && visibleLogs.length === 0 && <p style={{ color: C.muted, textAlign: "center", padding: "48px 0" }}>No sessions match these filters.</p>}
+            {visibleLogs.map((log, i) => {
               const logAthlete = athletes.find((a) => a.id === log.athleteId);
               const wkt = workouts.find((w) => w.id === log.workoutId);
               if (!logAthlete || !wkt) return null;

@@ -143,6 +143,14 @@ function computePRs(athleteId, allLogs, allWorkouts) {
   return prs;
 }
 
+// Coaches prescribe intensity in the load field as e.g. "RPE 8". Pull the
+// number out so the logger can show a separate RPE box instead of making the
+// athlete type their weight over the prescription.
+function parsePrescribedRpe(load) {
+  const m = /rpe\s*:?\s*(10|\d(?:\.\d)?)/i.exec(load || "");
+  return m ? m[1] : null;
+}
+
 // ─── ATTENDANCE ───────────────────────────────────────────────────────────────
 // Attendance is derived from logs, not marked separately: an athlete counts as
 // present for a session date if they logged any workout assigned to them that
@@ -184,4 +192,4 @@ function attendanceByAthlete(sessions, athletes) {
   }).filter((r) => r.assigned > 0);
 }
 
-export { assessmentCellKeys, attendanceByAthlete, computeMovementScore, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };
+export { assessmentCellKeys, attendanceByAthlete, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };

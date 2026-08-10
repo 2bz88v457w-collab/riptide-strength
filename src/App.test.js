@@ -18,7 +18,7 @@ jest.mock('@supabase/supabase-js', () => ({
 const { default: App } = require('./App');
 const {
   roundLoad, getProgressionFill, getMoveTypes, getWorkoutMoveTypes,
-  computeMovementScore, movementLevel,
+  computeMovementScore, movementLevel, parsePrescribedRpe,
 } = require('./helpers');
 const {
   EXERCISE_CATEGORIES, EXERCISE_BANK, REQUIRED_MOVE_TYPES,
@@ -137,5 +137,22 @@ describe('movement assessment scoring', () => {
     expect(movementLevel(18, false).label).toBe('Level 2');
     expect(movementLevel(17, false).label).toBe('Level 1');
     expect(movementLevel(23, true).label).toBe('Pain flagged');
+  });
+});
+
+describe('prescribed RPE parsing', () => {
+  test('pulls the number out of the coach\'s load prescription', () => {
+    expect(parsePrescribedRpe('RPE 8')).toBe('8');
+    expect(parsePrescribedRpe('rpe8')).toBe('8');
+    expect(parsePrescribedRpe('RPE: 7.5')).toBe('7.5');
+    expect(parsePrescribedRpe('RPE 10')).toBe('10');
+  });
+
+  test('returns null for weight or bodyweight prescriptions', () => {
+    expect(parsePrescribedRpe('95')).toBeNull();
+    expect(parsePrescribedRpe('BW')).toBeNull();
+    expect(parsePrescribedRpe('moderate')).toBeNull();
+    expect(parsePrescribedRpe('')).toBeNull();
+    expect(parsePrescribedRpe(undefined)).toBeNull();
   });
 });

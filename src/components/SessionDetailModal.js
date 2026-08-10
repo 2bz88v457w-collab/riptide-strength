@@ -31,7 +31,7 @@ function SessionDetailModal({ log, workout, athlete, onClose }) {
                     {[{ e: ex, s: loggedSets }, { e: partner, s: partnerSets }].map(({ e, s }) => (
                       <div key={e.id} style={{ marginBottom: 8 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}><span style={{ color: C.white, fontWeight: 600, fontSize: 13 }}>{e.name}</span><span style={{ color: C.muted, fontSize: 11 }}>{e.sets}×{e.reps}</span></div>
-                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{s.length > 0 ? s.map((row, i) => <div key={i} style={{ fontSize: 12, background: row.done ? C.tealGlow : C.surfaceUp, border: `1px solid ${row.done ? C.teal : C.border}`, borderRadius: 6, padding: "3px 10px", color: row.done ? C.teal : C.mutedUp }}>S{i + 1}: {row.reps || "—"} @ {row.load || "—"}</div>) : <span style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Not logged</span>}</div>
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{s.length > 0 ? s.map((row, i) => <div key={i} style={{ fontSize: 12, background: row.done ? C.tealGlow : C.surfaceUp, border: `1px solid ${row.done ? C.teal : C.border}`, borderRadius: 6, padding: "3px 10px", color: row.done ? C.teal : C.mutedUp }}>S{i + 1}: {row.reps || "—"} @ {row.load || "—"}{row.rpe ? <span style={{ color: C.gold }}> · RPE {row.rpe}</span> : null}</div>) : <span style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Not logged</span>}</div>
                       </div>
                     ))}
                   </div>
@@ -43,7 +43,7 @@ function SessionDetailModal({ log, workout, athlete, onClose }) {
             rendered.push(
               <div key={ex.id} style={{ background: C.surfaceUp, borderRadius: 10, padding: "10px 14px", marginBottom: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ color: C.white, fontWeight: 600, fontSize: 14 }}>{ex.name}</span><span style={{ color: C.muted, fontSize: 12 }}>{ex.sets}×{ex.reps}{ex.load ? ` @ ${ex.load}` : ""}</span></div>
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{loggedSets.length > 0 ? loggedSets.map((row, i) => <div key={i} style={{ fontSize: 12, background: row.done ? C.tealGlow : C.bg, border: `1px solid ${row.done ? C.teal : C.border}`, borderRadius: 6, padding: "3px 10px", color: row.done ? C.teal : C.mutedUp }}>S{i + 1}: {row.reps || "—"} @ {row.load || "—"}</div>) : <span style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Not logged</span>}</div>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{loggedSets.length > 0 ? loggedSets.map((row, i) => <div key={i} style={{ fontSize: 12, background: row.done ? C.tealGlow : C.bg, border: `1px solid ${row.done ? C.teal : C.border}`, borderRadius: 6, padding: "3px 10px", color: row.done ? C.teal : C.mutedUp }}>S{i + 1}: {row.reps || "—"} @ {row.load || "—"}{row.rpe ? <span style={{ color: C.gold }}> · RPE {row.rpe}</span> : null}</div>) : <span style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Not logged</span>}</div>
               </div>
             );
           });

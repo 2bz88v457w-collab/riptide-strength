@@ -61,3 +61,56 @@ test('All clears both the group filter and every tag filter', () => {
   fireEvent.click(screen.getByRole('button', { name: 'All (4)' }));
   expect(shown()).toEqual(['Ann Adams', 'Ben Brown', 'Cara Cole', 'Dan Dole']);
 });
+
+describe('logs tab filters', () => {
+  const WORKOUTS = [
+    { id: 'w1', title: 'Power Monday', date: '2026-09-09', assignees: ['a1', 'a2'], blocks: [] },
+    { id: 'w2', title: 'Clinic Day 1', date: '2026-09-16', assignees: ['a3'], blocks: [] },
+  ];
+  const LOGS = [
+    { id: 1, athleteId: 'a1', workoutId: 'w1', date: '2026-09-09', loggedAt: 100 },
+    { id: 2, athleteId: 'a2', workoutId: 'w1', date: '2026-09-09', loggedAt: 200 },
+    { id: 3, athleteId: 'a3', workoutId: 'w2', date: '2026-09-16', loggedAt: 300 },
+  ];
+  const openLogs = () => {
+    render(
+      <CoachApp athletes={ATHLETES} workouts={WORKOUTS} logs={LOGS} testScores={[]} progressions={[]} assessments={[]}
+        onSaveAssessment={noop} onDeleteAssessment={noop} onSaveProgressions={noop} onDeleteProgression={noop}
+        onSaveWorkout={noop} onDeleteWorkout={noop} onUpdateAthlete={noop} onDeleteAthlete={noop}
+        onAddAthlete={noop} onSaveTestScore={noop} onBulkTag={noop} onLogout={noop} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'logs' }));
+  };
+  const loggedNames = () => ATHLETES.map((a) => a.name).filter((n) => screen.queryByText((_, el) => el?.tagName === 'P' && el.textContent.startsWith(n + ' logged')));
+
+  test('shows every session by default', () => {
+    openLogs();
+    expect(loggedNames()).toEqual(['Ann Adams', 'Ben Brown', 'Cara Cole']);
+  });
+
+  test('search matches athlete name or workout title', () => {
+    openLogs();
+    fireEvent.change(screen.getByPlaceholderText('Search athlete or workout…'), { target: { value: 'cara' } });
+    expect(loggedNames()).toEqual(['Cara Cole']);
+    fireEvent.change(screen.getByPlaceholderText('Search athlete or workout…'), { target: { value: 'Power' } });
+    expect(loggedNames()).toEqual(['Ann Adams', 'Ben Brown']);
+  });
+
+  test('date range scopes the list, inclusive', () => {
+    openLogs();
+    const dateInputs = document.querySelectorAll('input[type="date"]');
+    fireEvent.change(dateInputs[0], { target: { value: '2026-09-16' } });
+    expect(loggedNames()).toEqual(['Cara Cole']);
+    fireEvent.change(dateInputs[0], { target: { value: '2026-09-09' } });
+    fireEvent.change(dateInputs[1], { target: { value: '2026-09-09' } });
+    expect(loggedNames()).toEqual(['Ann Adams', 'Ben Brown']);
+  });
+
+  test('group and tag pills filter by who logged', () => {
+    openLogs();
+    fireEvent.click(screen.getByRole('button', { name: '🏷 privates' }));
+    expect(loggedNames()).toEqual(['Ben Brown', 'Cara Cole']);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(loggedNames()).toEqual(['Ann Adams', 'Ben Brown', 'Cara Cole']);
+  });
+});
