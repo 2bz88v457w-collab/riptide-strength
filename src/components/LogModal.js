@@ -87,7 +87,7 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
   };
   const inpSm = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.white, padding: "4px 6px", fontSize: 13, textAlign: "center", fontFamily: "inherit", boxSizing: "border-box" };
 
-  const renderExLog = (ex, isSupersetMember = false) => {
+  const renderExLog = (ex, isSupersetMember = false, openSets = false) => {
     const history = getLastSets(ex.name, athleteId, allLogs, allWorkouts, workout.id);
     const isBWEx = ex.load?.trim().toUpperCase() === "BW";
     const bestInfo = !isBWEx ? getBestLoad(ex.name, athleteId, allLogs, allWorkouts, workout.id) : null;
@@ -118,10 +118,10 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
               <button onClick={() => toggleDone(ex.id, idx, ex.reps)} style={{ background: "none", border: "none", cursor: "pointer", color: row.done ? C.teal : C.muted, fontSize: 17, padding: 0, lineHeight: 1 }}>{row.done ? "✓" : "○"}</button>
             </div>
           ); })}
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {openSets && <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button onClick={() => addSet(ex)} title="Add a set — use this to log extra rounds on an AMRAP" style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 7, color: C.mutedUp, fontSize: 12, fontWeight: 700, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}>+ Set</button>
             {(sets[ex.id] || []).length > 1 && <button onClick={() => removeSet(ex)} title="Remove the last set" style={{ background: "none", border: "none", color: C.muted, fontSize: 15, padding: "0 4px", cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}>−</button>}
-          </div>
+          </div>}
         </div>
       </div>
     );
@@ -146,14 +146,14 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
                 rendered.push(
                   <div key={ex.pairId} style={{ background: `${C.gold}08`, border: `1px solid ${C.gold}33`, borderRadius: 12, padding: 10, marginBottom: 10 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}><div style={{ width: 20, height: 20, borderRadius: 5, background: C.gold, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 9, fontWeight: 900, color: C.bg }}>{labels[ex.id]?.[0]}</span></div><span style={{ fontSize: 11, fontWeight: 800, color: C.gold }}>SUPERSET</span></div>
-                    {renderExLog(ex, true)}<div style={{ height: 6 }} />{renderExLog(partner, true)}
+                    {renderExLog(ex, true, block.openSets)}<div style={{ height: 6 }} />{renderExLog(partner, true, block.openSets)}
                   </div>
                 );
                 return;
               }
             }
             seen.add(ex.id);
-            rendered.push(renderExLog(ex, false));
+            rendered.push(renderExLog(ex, false, block.openSets));
           });
           const blockComplete = block.exercises.length > 0 && block.exercises.every((ex) => {
             const exSets = sets[ex.id] || [];

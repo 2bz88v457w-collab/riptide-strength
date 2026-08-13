@@ -34,6 +34,9 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
   // Coach instructions for the whole block (AMRAP, EMOM, tempo…), shown to
   // athletes while they log. Distinct from the notes athletes write back.
   const setBlockNote = (bi, note) => setBlocks((bs) => bs.map((b, i) => i === bi ? { ...b, note } : b));
+  // Off by default: only blocks the coach opts in (AMRAP, EMOM…) let athletes
+  // add or drop set rows while logging.
+  const toggleOpenSets = (bi) => setBlocks((bs) => bs.map((b, i) => i === bi ? { ...b, openSets: !b.openSets } : b));
   const addBlock = () => setBlocks((bs) => {
     // Name the new one "Block N" continuing from the highest existing number.
     const maxN = bs.reduce((m, b) => { const hit = /^Block (\d+)$/.exec(b.name?.trim() || ""); return hit ? Math.max(m, parseInt(hit[1])) : m; }, 0);
@@ -215,12 +218,16 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
           });
           return (
             <div key={block.id} style={{ marginBottom: 22 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
                 <div style={{ width: 3, height: 16, borderRadius: 2, background: blockColor(bi), flexShrink: 0 }} />
                 <input value={block.name} onChange={(e) => renameBlock(bi, e.target.value)} placeholder="Block name" title="Rename this block" style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: blockColor(bi), fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".05em", fontFamily: "inherit", padding: "4px 8px", minWidth: 0, width: isNarrow ? "100%" : 240 }} />
                 <button onClick={() => moveBlock(bi, -1)} disabled={bi === 0} title="Move block up" style={{ background: "none", border: "none", color: bi === 0 ? C.border : C.muted, fontSize: 12, cursor: bi === 0 ? "default" : "pointer", padding: "0 2px", lineHeight: 1, flexShrink: 0 }}>▲</button>
                 <button onClick={() => moveBlock(bi, 1)} disabled={bi === blocks.length - 1} title="Move block down" style={{ background: "none", border: "none", color: bi === blocks.length - 1 ? C.border : C.muted, fontSize: 12, cursor: bi === blocks.length - 1 ? "default" : "pointer", padding: "0 2px", lineHeight: 1, flexShrink: 0 }}>▼</button>
                 <button onClick={() => removeBlock(bi)} title="Remove block" style={{ background: "none", border: "none", color: C.muted, fontSize: 17, cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+                <button onClick={() => toggleOpenSets(bi)} title={block.openSets ? "Athletes can add or remove set rows in this block — turn off to fix the set count" : "Let athletes add their own set rows here, for AMRAPs and anything open-ended"} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: block.openSets ? C.tealGlow : "transparent", border: `1px solid ${block.openSets ? C.teal : C.border}`, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700, color: block.openSets ? C.teal : C.mutedUp, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, border: `2px solid ${block.openSets ? C.teal : C.muted}`, background: block.openSets ? C.teal : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{block.openSets && <span style={{ color: C.bg, fontSize: 8, fontWeight: 900, lineHeight: 1 }}>✓</span>}</span>
+                  Athletes add sets
+                </button>
               </div>
               <textarea value={block.note || ""} onChange={(e) => setBlockNote(bi, e.target.value)} rows={2} placeholder="Optional instructions for this block — e.g. AMRAP in 10 min, log how many rounds you finished" style={{ background: C.bg, border: `1px solid ${block.note ? `${C.teal}55` : C.border}`, borderRadius: 8, color: C.white, padding: "7px 10px", fontSize: 12, width: "100%", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit", marginBottom: 8 }} />
               {rendered}

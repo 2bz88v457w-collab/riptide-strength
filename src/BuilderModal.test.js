@@ -100,3 +100,17 @@ test('blocks carry optional coach instructions that survive add and reorder', ()
   expect(noteBoxes()).toHaveLength(6);
   expect(noteBoxes()[5].value).toBe('');                     // new blocks start with no note
 });
+
+test('"Athletes add sets" is off by default and toggles per block', () => {
+  renderBuilder();
+  const toggles = () => screen.getAllByText('Athletes add sets').map((el) => el.closest('button'));
+  expect(toggles()).toHaveLength(5);
+  expect(toggles()[1].title).toMatch(/Let athletes add their own set rows/); // off
+
+  fireEvent.click(toggles()[1]);
+  expect(toggles()[1].title).toMatch(/Athletes can add or remove set rows/);  // on
+  expect(toggles()[0].title).toMatch(/Let athletes add their own set rows/);  // others untouched
+
+  fireEvent.click(toggles()[1]);
+  expect(toggles()[1].title).toMatch(/Let athletes add their own set rows/);  // toggles back off
+});

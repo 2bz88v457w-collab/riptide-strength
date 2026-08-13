@@ -76,7 +76,7 @@ describe('coach block instructions', () => {
 describe('adding and removing sets while logging (AMRAP rounds)', () => {
   const amrap = {
     id: 'w3', title: 'Conditioning', date: '2026-09-09',
-    blocks: [{ id: 'b1', name: 'Block 1', note: 'AMRAP 10 min — add a set for each round', exercises: [
+    blocks: [{ id: 'b1', name: 'Block 1', note: 'AMRAP 10 min — add a set for each round', openSets: true, exercises: [
       { id: 'e1', name: 'Burpees', sets: '2', reps: '10', load: 'RPE 8' },
     ] }],
   };
@@ -126,4 +126,17 @@ describe('adding and removing sets while logging (AMRAP rounds)', () => {
     expect(setRows()).toHaveLength(1);
     expect(screen.queryByText('−')).toBeNull();                         // control disappears at one set
   });
+});
+
+test('blocks without the toggle keep a fixed set count — no + Set control', () => {
+  const fixed = {
+    id: 'w4', title: 'Strength', date: '2026-09-09',
+    blocks: [{ id: 'b1', name: 'Block 1', exercises: [{ id: 'e1', name: 'Back Squat', sets: '3', reps: '5', load: '95' }] }],
+  };
+  render(
+    <LogModal workout={fixed} athleteId="a1" existingLog={null} allLogs={[]} allWorkouts={[fixed]}
+      progressions={[]} onConsumeProgressions={() => {}} onSave={() => {}} onClose={() => {}} />
+  );
+  expect(screen.queryByText('+ Set')).toBeNull();
+  expect(screen.getAllByPlaceholderText('5')).toHaveLength(3); // still the prescribed three
 });
