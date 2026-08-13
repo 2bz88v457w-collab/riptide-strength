@@ -72,3 +72,58 @@ describe('coach block instructions', () => {
     expect(screen.getByPlaceholderText('Notes for Cool Down…')).toBeInTheDocument();
   });
 });
+
+describe('adding and removing sets while logging (AMRAP rounds)', () => {
+  const amrap = {
+    id: 'w3', title: 'Conditioning', date: '2026-09-09',
+    blocks: [{ id: 'b1', name: 'Block 1', note: 'AMRAP 10 min — add a set for each round', exercises: [
+      { id: 'e1', name: 'Burpees', sets: '2', reps: '10', load: 'RPE 8' },
+    ] }],
+  };
+  const openIt = () => render(
+    <LogModal workout={amrap} athleteId="a1" existingLog={null} allLogs={[]} allWorkouts={[amrap]}
+      progressions={[]} onConsumeProgressions={() => {}} onSave={() => {}} onClose={() => {}} />
+  );
+  const setRows = () => screen.getAllByPlaceholderText('10');   // one reps box per set row
+
+  test('starts at the prescribed number of sets', () => {
+    openIt();
+    expect(setRows()).toHaveLength(2);
+  });
+
+  test('+ Set appends a round, carrying the prescribed RPE', () => {
+    openIt();
+    fireEvent.click(screen.getByText('+ Set'));
+    fireEvent.click(screen.getByText('+ Set'));
+    expect(setRows()).toHaveLength(4);                                  // logged 4 rounds
+    const rpeBoxes = screen.getAllByTitle(/Coach prescribed RPE/);
+    expect(rpeBoxes).toHaveLength(4);
+    expect(rpeBoxes[3].value).toBe('8');                                // new rows keep the prescription
+  });
+
+  test('− removes the last set, and asks first when it holds data', () => {
+    openIt();
+    fireEvent.click(screen.getByText('+ Set'));
+    expect(setRows()).toHaveLength(3);
+
+    fireEvent.click(screen.getByText('−'));                             // empty row goes quietly
+    expect(setRows()).toHaveLength(2);
+
+    fireEvent.change(setRows()[1], { target: { value: '9' } });
+    window.confirm = () => false;
+    fireEvent.click(screen.getByText('−'));
+    expect(setRows()).toHaveLength(2);                                  // cancelled, kept
+
+    window.confirm = () => true;
+    fireEvent.click(screen.getByText('−'));
+    expect(setRows()).toHaveLength(1);
+  });
+
+  test('the last remaining set cannot be removed', () => {
+    openIt();
+    window.confirm = () => true;
+    fireEvent.click(screen.getByText('−'));
+    expect(setRows()).toHaveLength(1);
+    expect(screen.queryByText('−')).toBeNull();                         // control disappears at one set
+  });
+});

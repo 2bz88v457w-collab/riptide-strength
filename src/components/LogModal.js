@@ -57,6 +57,21 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
       [exId]: s[exId].map((r, i) => (i > idx && !r.load.trim()) ? { ...r, load: v } : r),
     }));
   };
+  // Athletes can add or drop set rows while logging — an AMRAP block is logged
+  // by adding a row per round completed, and a short session by dropping one.
+  const addSet = (ex) => {
+    const isBW = ex.load?.trim().toUpperCase() === "BW";
+    const row = { reps: "", load: isBW ? "BW" : "", rpe: parsePrescribedRpe(ex.load) || "", done: false };
+    setSets((s) => ({ ...s, [ex.id]: [...(s[ex.id] || []), row] }));
+  };
+  const removeSet = (ex) => setSets((s) => {
+    const rows = s[ex.id] || [];
+    if (rows.length <= 1) return s;
+    const last = rows[rows.length - 1];
+    const hasData = last.done || last.reps?.trim() || (last.load?.trim() && last.load.trim().toUpperCase() !== "BW");
+    if (hasData && !window.confirm("Remove the last set? It has something logged in it.")) return s;
+    return { ...s, [ex.id]: rows.slice(0, -1) };
+  });
   const toggleDone = (exId, idx, prescribedReps) => {
     setSets((s) => { const current = s[exId][idx]; const nowDone = !current.done; const reps = current.reps || (nowDone ? prescribedReps : ""); return { ...s, [exId]: s[exId].map((r, i) => i === idx ? { ...r, done: nowDone, reps } : r) }; });
   };
@@ -103,6 +118,10 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
               <button onClick={() => toggleDone(ex.id, idx, ex.reps)} style={{ background: "none", border: "none", cursor: "pointer", color: row.done ? C.teal : C.muted, fontSize: 17, padding: 0, lineHeight: 1 }}>{row.done ? "✓" : "○"}</button>
             </div>
           ); })}
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button onClick={() => addSet(ex)} title="Add a set — use this to log extra rounds on an AMRAP" style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 7, color: C.mutedUp, fontSize: 12, fontWeight: 700, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}>+ Set</button>
+            {(sets[ex.id] || []).length > 1 && <button onClick={() => removeSet(ex)} title="Remove the last set" style={{ background: "none", border: "none", color: C.muted, fontSize: 15, padding: "0 4px", cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}>−</button>}
+          </div>
         </div>
       </div>
     );
