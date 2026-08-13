@@ -31,6 +31,9 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
   const remEx = (bi, ei) => setBlocks((bs) => bs.map((b, i) => { if (i !== bi) return b; const removed = b.exercises[ei]; return { ...b, exercises: b.exercises.filter((_, j) => j !== ei).map((e) => e.pairId && e.pairId === removed?.pairId ? { ...e, pairId: null } : e) }; }));
   const addMoves = (bi, names) => setBlocks((bs) => bs.map((b, i) => i === bi ? { ...b, exercises: [...b.exercises, ...names.map((n) => ({ ...emptyEx(), name: n }))] } : b));
   const renameBlock = (bi, name) => setBlocks((bs) => bs.map((b, i) => i === bi ? { ...b, name } : b));
+  // Coach instructions for the whole block (AMRAP, EMOM, tempo…), shown to
+  // athletes while they log. Distinct from the notes athletes write back.
+  const setBlockNote = (bi, note) => setBlocks((bs) => bs.map((b, i) => i === bi ? { ...b, note } : b));
   const addBlock = () => setBlocks((bs) => {
     // Name the new one "Block N" continuing from the highest existing number.
     const maxN = bs.reduce((m, b) => { const hit = /^Block (\d+)$/.exec(b.name?.trim() || ""); return hit ? Math.max(m, parseInt(hit[1])) : m; }, 0);
@@ -219,6 +222,7 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
                 <button onClick={() => moveBlock(bi, 1)} disabled={bi === blocks.length - 1} title="Move block down" style={{ background: "none", border: "none", color: bi === blocks.length - 1 ? C.border : C.muted, fontSize: 12, cursor: bi === blocks.length - 1 ? "default" : "pointer", padding: "0 2px", lineHeight: 1, flexShrink: 0 }}>▼</button>
                 <button onClick={() => removeBlock(bi)} title="Remove block" style={{ background: "none", border: "none", color: C.muted, fontSize: 17, cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
               </div>
+              <textarea value={block.note || ""} onChange={(e) => setBlockNote(bi, e.target.value)} rows={2} placeholder="Optional instructions for this block — e.g. AMRAP in 10 min, log how many rounds you finished" style={{ background: C.bg, border: `1px solid ${block.note ? `${C.teal}55` : C.border}`, borderRadius: 8, color: C.white, padding: "7px 10px", fontSize: 12, width: "100%", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit", marginBottom: 8 }} />
               {rendered}
               <button onClick={() => setPickerBlock(bi)} style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 7, color: C.muted, fontSize: 12, padding: "5px 14px", cursor: "pointer", marginTop: 4, fontFamily: "inherit" }}>+ Add exercise</button>
             </div>

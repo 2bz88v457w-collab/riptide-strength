@@ -147,8 +147,9 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
                 <span style={{ fontSize: 11, fontWeight: 800, color: blockColor(bi), textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span>
                 {blockComplete && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 800, color: C.teal, background: C.tealGlow, border: `1px solid ${C.teal}55`, borderRadius: 20, padding: "1px 8px" }}>✓ Complete</span>}
               </div>
+              {block.note && <p style={{ margin: "0 0 10px", padding: "8px 11px", background: C.tealGlow, border: `1px solid ${C.teal}44`, borderRadius: 8, color: C.white, fontSize: 12.5, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{block.note}</p>}
               {rendered}
-              <textarea value={blockNotes[block.id] || ""} onChange={(e) => setBlockNotes((n) => ({ ...n, [block.id]: e.target.value }))} placeholder={`Notes for ${block.name}…`} rows={2} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, padding: "7px 10px", fontSize: 12, width: "100%", boxSizing: "border-box", resize: "none", fontFamily: "inherit", marginTop: 8, fontStyle: "italic" }} />
+              <textarea value={blockNotes[block.id] || ""} onChange={(e) => setBlockNotes((n) => ({ ...n, [block.id]: e.target.value }))} placeholder={block.note ? `Your answer / notes for ${block.name}…` : `Notes for ${block.name}…`} rows={2} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, padding: "7px 10px", fontSize: 12, width: "100%", boxSizing: "border-box", resize: "none", fontFamily: "inherit", marginTop: 8, fontStyle: "italic" }} />
             </div>
           );
         })}

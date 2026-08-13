@@ -47,3 +47,28 @@ test('a weight-prescribed move keeps the simple two-box row', () => {
   expect(screen.getAllByPlaceholderText('95')).toHaveLength(1); // ex2 still shows its prescription
   expect(rpeBoxes().every((b) => b.title.includes('RPE 8'))).toBe(true); // no RPE box added for ex2
 });
+
+describe('coach block instructions', () => {
+  const withNote = {
+    id: 'w2', title: 'Conditioning', date: '2026-09-09',
+    blocks: [
+      { id: 'b1', name: 'Block 1', note: 'AMRAP 10 min — log how many rounds you finished', exercises: [{ id: 'e1', name: 'Burpees', sets: '1', reps: '10', load: 'BW' }] },
+      { id: 'b2', name: 'Cool Down', exercises: [{ id: 'e2', name: 'Toe Touch', sets: '1', reps: '10', load: 'BW' }] },
+    ],
+  };
+  const openIt = () => render(
+    <LogModal workout={withNote} athleteId="a1" existingLog={null} allLogs={[]} allWorkouts={[withNote]}
+      progressions={[]} onConsumeProgressions={() => {}} onSave={() => {}} onClose={() => {}} />
+  );
+
+  test('the instruction is shown to the athlete while logging', () => {
+    openIt();
+    expect(screen.getByText('AMRAP 10 min — log how many rounds you finished')).toBeInTheDocument();
+  });
+
+  test('a block with an instruction invites an answer; one without keeps the plain prompt', () => {
+    openIt();
+    expect(screen.getByPlaceholderText('Your answer / notes for Block 1…')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Notes for Cool Down…')).toBeInTheDocument();
+  });
+});

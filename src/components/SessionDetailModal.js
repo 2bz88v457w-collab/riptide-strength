@@ -50,6 +50,7 @@ function SessionDetailModal({ log, workout, athlete, onClose }) {
           return (
             <div key={block.id} style={{ marginBottom: 18 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}><div style={{ width: 3, height: 14, borderRadius: 2, background: blockColor(bi) }} /><span style={{ fontSize: 11, fontWeight: 800, color: blockColor(bi), textTransform: "uppercase", letterSpacing: ".06em" }}>{block.name}</span></div>
+              {block.note && <p style={{ margin: "0 0 8px", padding: "6px 10px", background: C.tealGlow, border: `1px solid ${C.teal}33`, borderRadius: 7, color: C.mutedUp, fontSize: 12, whiteSpace: "pre-wrap" }}>{block.note}</p>}
               {rendered}
               {log.blockNotes?.[block.id] && <p style={{ margin: "6px 0 0", fontSize: 12, color: C.mutedUp, fontStyle: "italic", background: C.bg, borderRadius: 7, padding: "6px 10px" }}>"{log.blockNotes[block.id]}"</p>}
             </div>

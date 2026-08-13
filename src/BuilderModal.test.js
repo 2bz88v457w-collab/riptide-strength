@@ -80,3 +80,23 @@ test('removing a block with exercises asks first and respects Cancel', () => {
   fireEvent.click(screen.getAllByTitle('Remove block')[1]);
   expect(blockInputs().map((i) => i.value)).toEqual(['Warm-up', 'Block 2', 'Block 3', 'Cool Down']);
 });
+
+test('blocks carry optional coach instructions that survive add and reorder', () => {
+  renderBuilder();
+  const noteBoxes = () => screen.getAllByPlaceholderText(/Optional instructions for this block/);
+  expect(noteBoxes()).toHaveLength(5);                       // one per block, all empty
+  expect(noteBoxes()[1].value).toBe('');
+
+  fireEvent.change(noteBoxes()[1], { target: { value: 'AMRAP 10 min — log rounds finished' } });
+  expect(noteBoxes()[1].value).toBe('AMRAP 10 min — log rounds finished');
+
+  // The note belongs to the block, so it travels when the block moves.
+  fireEvent.click(screen.getAllByTitle('Move block up')[1]);
+  expect(blockInputs().map((i) => i.value)).toEqual(['Block 1', 'Warm-up', 'Block 2', 'Block 3', 'Cool Down']);
+  expect(noteBoxes()[0].value).toBe('AMRAP 10 min — log rounds finished');
+  expect(noteBoxes()[1].value).toBe('');
+
+  fireEvent.click(screen.getByText('+ Add block'));
+  expect(noteBoxes()).toHaveLength(6);
+  expect(noteBoxes()[5].value).toBe('');                     // new blocks start with no note
+});
