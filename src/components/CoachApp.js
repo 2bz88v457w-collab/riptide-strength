@@ -3,6 +3,7 @@ import { C, STROKES, DISTANCES } from "../constants";
 import { uid, today, fmtDate } from "../helpers";
 import { AssessmentTab } from "./AssessmentTab";
 import { AttendanceTab } from "./AttendanceTab";
+import { AttentionTab } from "./AttentionTab";
 import { BuilderModal } from "./BuilderModal";
 import { EditAthleteModal } from "./EditAthleteModal";
 import { ProgressDashboard } from "./ProgressDashboard";
@@ -112,7 +113,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, maxWidth: "100%", minWidth: 0 }}>
             <div style={{ display: "flex", background: C.bg, borderRadius: 30, padding: 3, overflowX: "auto", maxWidth: "100%" }}>
-              {["workouts","roster","logs","attendance","bumps","Assessments","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize", whiteSpace: "nowrap", flexShrink: 0 }}>{t}</button>)}
+              {["workouts","roster","logs","attention","attendance","bumps","Assessments","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize", whiteSpace: "nowrap", flexShrink: 0 }}>{t}</button>)}
             </div>
             <button onClick={onLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>Log out</button>
           </div>
@@ -333,6 +334,10 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
               );
             })}
           </div>
+        )}
+
+        {tab === "attention" && (
+          <AttentionTab athletes={activeAthletes} workouts={workouts} logs={logs} />
         )}
 
         {tab === "attendance" && (

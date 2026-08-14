@@ -151,6 +151,91 @@ function parsePrescribedRpe(load) {
   return m ? m[1] : null;
 }
 
+// ─── NEEDS ATTENTION ──────────────────────────────────────────────────────────
+// Thresholds live here so they are easy to retune once a season of data exists.
+const ATTENTION = {
+  quietDays: 7,        // no log for this many days, having had work assigned
+  minRpeSessions: 4,   // never judge a trend on fewer sessions than this
+  rampDelta: 1.5,      // recent average this much above the earlier average
+  rampFloor: 7,        // …and recent average at least this high, else it is not overreach
+  flatCeiling: 5,      // every recent session at or below this reads as under-challenged
+  window: 3,           // sessions per comparison window
+};
+
+const daysBetween = (a, b) => Math.floor((a - b) / 86400000);
+
+// Session RPE as the athlete recorded it. Blank stays blank — an unanswered
+// RPE box is not a data point.
+function sessionRpe(log) {
+  const n = parseFloat(log?.rpe);
+  return isNaN(n) ? null : n;
+}
+
+// One row per athlete describing why (or whether) they need a look.
+function computeAttention(athletes, workouts, logs, { today = new Date(), cfg = ATTENTION } = {}) {
+  const wktById = new Map(workouts.map((w) => [w.id, w]));
+  const todayISO = today.toISOString().slice(0, 10);
+  return athletes.map((a) => {
+    const mine = logs
+      .filter((l) => l.athleteId === a.id)
+      .map((l) => ({ ...l, date: wktById.get(l.workoutId)?.date || l.date }))
+      .filter((l) => l.date)
+      .sort((x, y) => x.date.localeCompare(y.date));
+    const last = mine[mine.length - 1];
+    const daysSinceLog = last ? daysBetween(new Date(todayISO + "T12:00:00"), new Date(last.date + "T12:00:00")) : null;
+
+    // Assigned but unlogged inside the quiet window — the difference between
+    // "gone quiet" and "nothing was on the schedule".
+    const loggedWorkoutIds = new Set(mine.map((l) => l.workoutId));
+    const missed = workouts.filter((w) => {
+      if (!(w.assignees ?? []).includes(a.id) || loggedWorkoutIds.has(w.id)) return false;
+      const age = daysBetween(new Date(todayISO + "T12:00:00"), new Date(w.date + "T12:00:00"));
+      return age >= 0 && age <= cfg.quietDays;
+    });
+
+    const rpes = mine.map(sessionRpe).filter((n) => n !== null);
+    const enoughRpe = rpes.length >= cfg.minRpeSessions;
+    const recent = rpes.slice(-cfg.window);
+    const prior = rpes.slice(-cfg.window * 2, -cfg.window);
+    const avg = (xs) => xs.reduce((s, n) => s + n, 0) / xs.length;
+    const recentAvg = recent.length ? avg(recent) : null;
+    const priorAvg = prior.length ? avg(prior) : null;
+
+    const flags = [];
+    if (missed.length > 0 && (daysSinceLog === null || daysSinceLog >= cfg.quietDays)) {
+      flags.push({
+        kind: "quiet",
+        label: `No log in ${daysSinceLog === null ? "any" : daysSinceLog} day${daysSinceLog === 1 ? "" : "s"}`,
+        detail: `${missed.length} assigned session${missed.length === 1 ? "" : "s"} not logged`,
+        severity: 3 + Math.min(missed.length, 3),
+      });
+    }
+    if (enoughRpe && priorAvg !== null && recentAvg - priorAvg >= cfg.rampDelta && recentAvg >= cfg.rampFloor) {
+      flags.push({
+        kind: "ramp",
+        label: "RPE trending up",
+        detail: `last ${recent.length} averaged ${recentAvg.toFixed(1)}, up from ${priorAvg.toFixed(1)} — possible overreach`,
+        severity: 5,
+      });
+    }
+    if (enoughRpe && recent.length === cfg.window && recent.every((n) => n <= cfg.flatCeiling)) {
+      flags.push({
+        kind: "flat",
+        label: "RPE flat and low",
+        detail: `last ${recent.length} sessions all at or below ${cfg.flatCeiling} — may be under-challenged`,
+        severity: 2,
+      });
+    }
+
+    return {
+      athlete: a, flags, daysSinceLog, missedCount: missed.length,
+      logCount: mine.length, rpeCount: rpes.length, enoughRpe,
+      severity: flags.reduce((m, f) => Math.max(m, f.severity), 0),
+    };
+  }).filter((r) => r.flags.length > 0)
+    .sort((x, y) => y.severity - x.severity || x.athlete.name.localeCompare(y.athlete.name));
+}
+
 // ─── ATTENDANCE ───────────────────────────────────────────────────────────────
 // Attendance is derived from logs, not marked separately: an athlete counts as
 // present for a session date if they logged any workout assigned to them that
@@ -192,4 +277,4 @@ function attendanceByAthlete(sessions, athletes) {
   }).filter((r) => r.assigned > 0);
 }
 
-export { assessmentCellKeys, attendanceByAthlete, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };
+export { ATTENTION, assessmentCellKeys, attendanceByAthlete, computeAttention, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };

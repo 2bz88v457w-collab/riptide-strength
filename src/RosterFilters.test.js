@@ -114,3 +114,40 @@ describe('logs tab filters', () => {
     expect(loggedNames()).toEqual(['Ann Adams', 'Ben Brown', 'Cara Cole']);
   });
 });
+
+describe('needs attention tab', () => {
+  const dayAgo = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  const WORKOUTS = [
+    { id: 'w1', title: 'Monday', date: dayAgo(2), assignees: ['a1', 'a2'], blocks: [] },
+    { id: 'w2', title: 'Wednesday', date: dayAgo(4), assignees: ['a1', 'a2'], blocks: [] },
+  ];
+  const LOGS = [ // Ben logged both, Ann logged neither, Cara had nothing assigned
+    { id: 1, athleteId: 'a2', workoutId: 'w1', date: dayAgo(2), loggedAt: 1 },
+    { id: 2, athleteId: 'a2', workoutId: 'w2', date: dayAgo(4), loggedAt: 2 },
+  ];
+  const openAttention = (logs = LOGS) => {
+    render(
+      <CoachApp athletes={ATHLETES} workouts={WORKOUTS} logs={logs} testScores={[]} progressions={[]} assessments={[]}
+        onSaveAssessment={noop} onDeleteAssessment={noop} onSaveProgressions={noop} onDeleteProgression={noop}
+        onSaveWorkout={noop} onDeleteWorkout={noop} onUpdateAthlete={noop} onDeleteAthlete={noop}
+        onAddAthlete={noop} onSaveTestScore={noop} onBulkTag={noop} onLogout={noop} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'attention' }));
+  };
+
+  test('lists only the athlete who missed assigned sessions', () => {
+    openAttention();
+    expect(screen.getByText('Ann Adams')).toBeInTheDocument();
+    expect(screen.queryByText('Ben Brown')).toBeNull();   // logged everything
+    expect(screen.queryByText('Cara Cole')).toBeNull();   // nothing assigned
+    expect(screen.getByText(/2 assigned sessions not logged/)).toBeInTheDocument();
+  });
+
+  test('shows a clean state when everyone is on track', () => {
+    openAttention([...LOGS,
+      { id: 3, athleteId: 'a1', workoutId: 'w1', date: dayAgo(2), loggedAt: 3 },
+      { id: 4, athleteId: 'a1', workoutId: 'w2', date: dayAgo(4), loggedAt: 4 },
+    ]);
+    expect(screen.getByText('Nobody needs attention right now.')).toBeInTheDocument();
+  });
+});
