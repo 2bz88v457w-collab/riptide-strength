@@ -194,7 +194,9 @@ const DISTANCES = ["Sprint", "Mid-Distance", "Distance"];
 const TEST_METRICS = [
   { key: "pushups", label: "Push-ups", unit: "reps in 30s", color: C.teal },
   { key: "pullups", label: "Pull-ups", unit: "unbroken reps", color: C.gold },
-  { key: "rdl", label: "RDL", unit: "lbs", color: "#A78BFA" },
+  // Key stays "rdl" — it maps to the test_scores column. Only the label shown
+  // to coaches and athletes changes, to match the move in the exercise library.
+  { key: "rdl", label: "Deadlift + BB", unit: "lbs", color: "#A78BFA" },
 ];
 
 // ─── MOVEMENT ASSESSMENT (Surge Strength test form) ──────────────────────────
