@@ -1,9 +1,40 @@
 import { useState } from "react";
 import { C, TEST_METRICS } from "../constants";
 import { Avatar, Btn } from "./common";
+import { LogProgress } from "./LogProgress";
 
 // ─── COACH PROGRESS DASHBOARD ─────────────────────────────────────────────────
-function ProgressDashboard({ athletes, testScores, onEnterScores }) {
+// Two ways to read progress: baselines derived from what athletes log (the
+// default — no test day required, covers every movement), and the three-metric
+// Test Days, kept for whenever a formal test is actually run.
+function ProgressDashboard({ athletes, testScores, workouts, logs, seasons = [], defaultSeason, onEnterScores }) {
+  const [mode, setMode] = useState("logs");
+  const tab = (key, label) => (
+    <button key={key} onClick={() => setMode(key)} style={{ border: "none", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: mode === key ? C.teal : "transparent", color: mode === key ? C.bg : C.muted }}>{label}</button>
+  );
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Progress</h1>
+          <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>
+            {mode === "logs" ? "Baselines from what they log — no test day needed" : `${testScores.length} test entries · ${athletes.filter((a) => testScores.some((s) => s.athleteId === a.id)).length} athletes tested`}
+          </p>
+        </div>
+        {mode === "tests" && <Btn onClick={onEnterScores}>+ Enter scores</Btn>}
+      </div>
+      <div style={{ display: "flex", gap: 4, marginBottom: 16, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 22, padding: 3, width: "fit-content" }}>
+        {tab("logs", "From logs")}
+        {tab("tests", "Test days")}
+      </div>
+      {mode === "logs"
+        ? <LogProgress athletes={athletes} workouts={workouts} logs={logs} seasons={seasons} defaultSeason={defaultSeason} />
+        : <TestScoreProgress athletes={athletes} testScores={testScores} />}
+    </div>
+  );
+}
+
+function TestScoreProgress({ athletes, testScores }) {
   const [groupFilter, setGroupFilter] = useState("All");
   const [metricFilter, setMetricFilter] = useState("pushups");
   const [search, setSearch] = useState("");
@@ -21,11 +52,7 @@ function ProgressDashboard({ athletes, testScores, onEnterScores }) {
   const groupAvg = (group) => { const gIds = (group === "All" ? athletes : athletes.filter((a) => a.event === group)).map((a) => a.id); const vals = athleteData.filter((d) => gIds.includes(d.athlete.id) && d.diff !== null); if (!vals.length) return null; return (vals.reduce((s, d) => s + d.diff, 0) / vals.length).toFixed(1); };
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div><h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Progress</h1><p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>{testScores.length} test entries · {athletes.filter((a) => testScores.some((s) => s.athleteId === a.id)).length} athletes tested</p></div>
-        <Btn onClick={onEnterScores}>+ Enter scores</Btn>
-      </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {TEST_METRICS.map((m) => <button key={m.key} onClick={() => setMetricFilter(m.key)} style={{ border: `1px solid ${metricFilter === m.key ? m.color : C.border}`, borderRadius: 20, padding: "6px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: metricFilter === m.key ? `${m.color}22` : "transparent", color: metricFilter === m.key ? m.color : C.mutedUp }}>{m.label}</button>)}
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>

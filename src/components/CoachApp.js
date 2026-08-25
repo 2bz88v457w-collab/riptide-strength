@@ -357,7 +357,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
         )}
 
         {tab === "progress" && (
-          <ProgressDashboard athletes={athletes} testScores={testScores} onEnterScores={() => setShowTestEntry(true)} />
+          <ProgressDashboard athletes={athletes} testScores={testScores} workouts={workouts} logs={logs} seasons={seasons} defaultSeason={latestSeason} onEnterScores={() => setShowTestEntry(true)} />
         )}
 
       </div>

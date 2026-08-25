@@ -206,6 +206,97 @@ function buildPlannedWorkouts(source, opts, grid, makeId = uid) {
   });
 }
 
+// ─── LOG-DERIVED BASELINES ────────────────────────────────────────────────────
+// There is no formal test day — testing 80 athletes individually was never going
+// to happen. So an athlete's *first logged number* for a movement is their
+// baseline, and progress is measured from there. That gives a baseline for every
+// movement they touch instead of three, at no cost in coach time.
+//
+// Scoped by season by default: short course should start fresh rather than
+// measure against long-course numbers.
+//
+// Honest caveat when reading these: a first log taken on a technique or
+// feel-it-out day overstates the gain (45 → 95 lbs on a movement someone was
+// learning reads as +111%). Good for motivating athletes, not a strength test.
+
+// Best number an athlete hit in a single session for one movement. Loads and
+// reps both go through parseLoadNum, so "12 each" and "95 lbs" both count.
+function sessionBest(sets, field) {
+  let best = null;
+  for (const s of sets || []) {
+    const n = parseLoadNum(s?.[field]);
+    if (n !== null && n > 0 && (best === null || n > best)) best = n;
+  }
+  return best;
+}
+const maxOrNull = (a, b) => (a === null ? b : b === null ? a : Math.max(a, b));
+
+// One entry per movement, each holding a row per athlete who has logged it:
+// first → best, with the change. Movements with any weight logged are measured
+// in load; bodyweight movements (push-ups, pull-ups) fall back to reps, which is
+// what the old three-metric test day measured two of anyway.
+function computeMovementProgress(athletes, workouts, logs, { season, from, to } = {}) {
+  let wkts = season && season !== "All" ? workouts.filter((w) => w.season === season) : workouts;
+  if (from) wkts = wkts.filter((w) => w.date >= from);
+  if (to) wkts = wkts.filter((w) => w.date <= to);
+
+  const wktById = new Map(wkts.map((w) => [w.id, w]));
+  const moveOfExercise = new Map();   // exercise id → movement key
+  const displayName = new Map();      // movement key → name as the coach wrote it
+  wkts.forEach((w) => (w.blocks || []).forEach((b) => (b.exercises || []).forEach((e) => {
+    const name = (e.name || "").trim();
+    if (!name) return;
+    const key = name.toLowerCase();
+    moveOfExercise.set(e.id, key);
+    if (!displayName.has(key)) displayName.set(key, name);
+  })));
+
+  const athleteById = new Map(athletes.map((a) => [a.id, a]));
+  // movement key → athlete id → session date → { load, reps }. Keying by date
+  // collapses a movement that appears in two blocks of the same session.
+  const acc = new Map();
+  logs.forEach((l) => {
+    const w = wktById.get(l.workoutId);
+    if (!w || !athleteById.has(l.athleteId)) return;
+    Object.entries(l.sets || {}).forEach(([exId, sets]) => {
+      const key = moveOfExercise.get(exId);
+      if (!key) return;
+      const load = sessionBest(sets, "load");
+      const reps = sessionBest(sets, "reps");
+      if (load === null && reps === null) return;
+      if (!acc.has(key)) acc.set(key, new Map());
+      const byAthlete = acc.get(key);
+      if (!byAthlete.has(l.athleteId)) byAthlete.set(l.athleteId, new Map());
+      const byDate = byAthlete.get(l.athleteId);
+      const prev = byDate.get(w.date) || { load: null, reps: null };
+      byDate.set(w.date, { load: maxOrNull(prev.load, load), reps: maxOrNull(prev.reps, reps) });
+    });
+  });
+
+  return [...acc.entries()].map(([key, byAthlete]) => {
+    const anyLoad = [...byAthlete.values()].some((byDate) => [...byDate.values()].some((v) => v.load !== null));
+    const metric = anyLoad ? "load" : "reps";
+    const rows = [...byAthlete.entries()].map(([athleteId, byDate]) => {
+      const points = [...byDate.entries()]
+        .map(([date, v]) => ({ date, value: v[metric] }))
+        .filter((p) => p.value !== null)
+        .sort((a, b) => a.date.localeCompare(b.date));
+      if (points.length === 0) return null;
+      const first = points[0];
+      const best = points.reduce((m, p) => (p.value > m.value ? p : m), points[0]);
+      const delta = best.value - first.value;
+      return {
+        athlete: athleteById.get(athleteId),
+        first, best, latest: points[points.length - 1],
+        sessions: points.length, delta,
+        pct: first.value ? (delta / first.value) * 100 : null,
+      };
+    }).filter(Boolean);
+    return { key, movement: displayName.get(key), metric, rows: rows.sort((a, b) => b.delta - a.delta || a.athlete.name.localeCompare(b.athlete.name)) };
+  }).filter((m) => m.rows.length > 0)
+    .sort((a, b) => b.rows.length - a.rows.length || a.movement.localeCompare(b.movement));
+}
+
 // ─── NEEDS ATTENTION ──────────────────────────────────────────────────────────
 // Thresholds live here so they are easy to retune once a season of data exists.
 const ATTENTION = {
@@ -332,4 +423,4 @@ function attendanceByAthlete(sessions, athletes) {
   }).filter((r) => r.assigned > 0);
 }
 
-export { ATTENTION, addDays, buildPlannedWorkouts, titleTemplateFrom, assessmentCellKeys, attendanceByAthlete, computeAttention, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };
+export { ATTENTION, addDays, buildPlannedWorkouts, titleTemplateFrom, assessmentCellKeys, attendanceByAthlete, computeAttention, computeMovementProgress, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };
