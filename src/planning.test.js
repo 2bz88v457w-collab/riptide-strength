@@ -63,15 +63,29 @@ test('everything not being planned is carried across untouched', () => {
   expect(w.blocks[1].exercises[0].pairId).toBe('p1');           // superset pairing
 });
 
-test('generated workouts are independent — fresh ids everywhere', () => {
-  const out = buildPlannedWorkouts(SOURCE, { weeks: 2, startDate: '2026-09-07', titleTemplate: 'W{n}' }, {}, ids);
-  const allIds = out.flatMap((w) => [w.id, ...w.blocks.flatMap((b) => [b.id, ...b.exercises.map((e) => e.id)])]);
-  expect(new Set(allIds).size).toBe(allIds.length);             // no duplicates across weeks
-  expect(allIds).not.toContain('src');
-  expect(allIds).not.toContain('e1');
-  // mutating a generated workout cannot reach the source
-  out[0].blocks[1].exercises[0].reps = '99';
+test('week 1 is the source workout — same ids, so saving updates it', () => {
+  const out = buildPlannedWorkouts(SOURCE, { weeks: 3, startDate: '2026-09-07', titleTemplate: 'W{n}' }, {}, ids);
+  expect(out[0].id).toBe('src');                                 // updates, never a twin
+  expect(out[0].blocks[1].exercises[0].id).toBe('e1');            // logs key sets by exercise id
+  expect(out[0].blocks[1].id).toBe('b2');
+});
+
+test('later weeks are new workouts with fresh ids throughout', () => {
+  const out = buildPlannedWorkouts(SOURCE, { weeks: 3, startDate: '2026-09-07', titleTemplate: 'W{n}' }, {}, ids);
+  const laterIds = out.slice(1).flatMap((w) => [w.id, ...w.blocks.flatMap((b) => [b.id, ...b.exercises.map((e) => e.id)])]);
+  expect(new Set(laterIds).size).toBe(laterIds.length);          // no duplicates between weeks
+  expect(laterIds).not.toContain('src');
+  expect(laterIds).not.toContain('e1');
+  // editing a generated week cannot reach back into the source object
+  out[1].blocks[1].exercises[0].reps = '99';
   expect(SOURCE.blocks[1].exercises[0].reps).toBe('8');
+});
+
+test('week 1 edits are applied to the source workout too', () => {
+  const grid = { 0: { e1: { sets: '5', reps: '5', load: 'RPE 6' } } };
+  const [w1] = buildPlannedWorkouts(SOURCE, { weeks: 2, startDate: '2026-09-07', titleTemplate: 'W{n}' }, grid, ids);
+  expect(w1.id).toBe('src');
+  expect(w1.blocks[1].exercises[0]).toMatchObject({ sets: '5', reps: '5', load: 'RPE 6' });
 });
 
 test('the starting week number can be offset to continue a block', () => {
@@ -89,28 +103,39 @@ const openPlanner = (onSaveWorkout = jest.fn().mockResolvedValue(true)) => {
   return onSaveWorkout;
 };
 
-test('defaults follow on from the source week and date', () => {
+test('the block starts at the source week and date, with no separate week-number box', () => {
   openPlanner();
   expect(screen.getByDisplayValue('Strength - Week {n} - Monday')).toBeInTheDocument();
-  expect(screen.getByDisplayValue('2026-09-14')).toBeInTheDocument();   // week after the source
-  expect(screen.getByDisplayValue('2')).toBeInTheDocument();            // source was Week 1
-  expect(screen.getByText(/Create 4 workouts/)).toBeInTheDocument();
+  expect(screen.getByDisplayValue('2026-09-07')).toBeInTheDocument();   // the source's own date
+  expect(screen.queryByTitle(/number the first planned week/)).toBeNull();
+  expect(screen.getByText(/Save 4 workouts/)).toBeInTheDocument();
+  // week 1 is shown as the existing workout, later weeks as new
+  expect(screen.getByText('this workout')).toBeInTheDocument();
+  expect(screen.getAllByText('new')).toHaveLength(3);
 });
 
-test('creating saves one workout per week with the planned numbers', async () => {
+test('one week means just this workout, nothing extra created', async () => {
   const save = openPlanner();
-  // every cell starts pre-filled; change Deadlift reps in the last week only
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: '1' } });
+  expect(screen.getByText(/Save 1 workout$/)).toBeInTheDocument();
+  fireEvent.click(screen.getByText(/Save 1 workout$/));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  expect(save.mock.calls[0][0].id).toBe('src');
+});
+
+test('saving covers the whole block, source week included', async () => {
+  const save = openPlanner();
   const repsBoxes = screen.getAllByTitle('Reps');
   fireEvent.change(repsBoxes[repsBoxes.length - 2], { target: { value: '6' } });
-  fireEvent.click(screen.getByText('Create 4 workouts'));
+  fireEvent.click(screen.getByText(/Save 4 workouts/));
 
   await waitFor(() => expect(save).toHaveBeenCalledTimes(4));
   const titles = save.mock.calls.map(([w]) => w.title);
   expect(titles).toEqual([
-    'Strength - Week 2 - Monday', 'Strength - Week 3 - Monday',
-    'Strength - Week 4 - Monday', 'Strength - Week 5 - Monday',
+    'Strength - Week 1 - Monday', 'Strength - Week 2 - Monday',
+    'Strength - Week 3 - Monday', 'Strength - Week 4 - Monday',
   ]);
-  expect(save.mock.calls.map(([w]) => w.date)).toEqual(['2026-09-14', '2026-09-21', '2026-09-28', '2026-10-05']);
+  expect(save.mock.calls.map(([w]) => w.date)).toEqual(['2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28']);
   // assignees and season ride along on every week
   save.mock.calls.forEach(([w]) => {
     expect(w.assignees).toEqual(['a1', 'a2']);
@@ -121,7 +146,19 @@ test('creating saves one workout per week with the planned numbers', async () =>
 test('a failed save stops the run rather than pressing on', async () => {
   const save = jest.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
   openPlanner(save);
-  fireEvent.click(screen.getByText('Create 4 workouts'));
+  fireEvent.click(screen.getByText(/Save 4 workouts/));
   await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
   expect(save).toHaveBeenCalledTimes(2);   // stopped after the failure, not 4
+});
+
+test('dates that already hold another workout are flagged before committing', () => {
+  const clash = { id: 'other', title: 'Core Stretch - Friday', date: '2026-09-21' };
+  render(<PlanWeeksModal source={SOURCE} workouts={[SOURCE, clash]} onSaveWorkout={jest.fn()} onClose={() => {}} />);
+  expect(screen.getByText(/already has: Core Stretch - Friday/)).toBeInTheDocument();
+  expect(screen.getByText(/Creating anyway will leave both/)).toBeInTheDocument();
+});
+
+test('the source workout itself is not reported as a clash', () => {
+  render(<PlanWeeksModal source={SOURCE} workouts={[SOURCE]} onSaveWorkout={jest.fn()} onClose={() => {}} />);
+  expect(screen.queryByText(/already has:/)).toBeNull();
 });

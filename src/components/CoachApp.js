@@ -17,7 +17,8 @@ import { Avatar, Btn, StatCard } from "./common";
 function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onSaveTestScore, onBulkTag, onLogout }) {
   const [tab, setTab] = useState("workouts");
   const [showBuilder, setShowBuilder] = useState(false);
-  const [planSource, setPlanSource] = useState(null);
+  const [planSource, setPlanSource] = useState(null);   // { source, initialWeeks }
+  const [builderNew, setBuilderNew] = useState(false);
   const [editWkt, setEditWkt] = useState(null);
   const [selectedAthlete, setSelectedAthlete] = useState(null);
   const [editAthlete, setEditAthlete] = useState(null);
@@ -128,7 +129,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <div><h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Workouts</h1><p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>{workouts.length} total · {logs.length} sessions logged</p></div>
-              <Btn onClick={() => { setEditWkt(null); setShowBuilder(true); }}>+ New workout</Btn>
+              <Btn onClick={() => { setEditWkt(null); setBuilderNew(true); setShowBuilder(true); }}>+ New workout</Btn>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 24 }}>
               <StatCard label="Workouts" value={workouts.length} />
@@ -158,9 +159,9 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{names.slice(0, 8).map((n) => <span key={n} style={{ fontSize: 11, background: C.tealGlow, color: C.teal, border: `1px solid ${C.border}`, borderRadius: 20, padding: "2px 9px" }}>{n}</span>)}{names.length > 8 && <span style={{ fontSize: 11, color: C.muted }}>+{names.length - 8} more</span>}</div>
                     </div>
                     <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-                      <Btn variant="ghost" small onClick={() => { setEditWkt(wkt); setShowBuilder(true); }}>Edit</Btn>
-                      <Btn variant="ghost" small onClick={() => { const copy = { ...JSON.parse(JSON.stringify(wkt)), id: uid(), title: wkt.title + " — Copy", date: today(), assignees: [] }; setEditWkt(copy); setShowBuilder(true); }}>Duplicate</Btn>
-                      <Btn variant="ghost" small onClick={() => setPlanSource(wkt)}>Plan weeks</Btn>
+                      <Btn variant="ghost" small onClick={() => { setEditWkt(wkt); setBuilderNew(false); setShowBuilder(true); }}>Edit</Btn>
+                      <Btn variant="ghost" small onClick={() => { const copy = { ...JSON.parse(JSON.stringify(wkt)), id: uid(), title: wkt.title + " — Copy", date: today(), assignees: [] }; setEditWkt(copy); setBuilderNew(true); setShowBuilder(true); }}>Duplicate</Btn>
+                      <Btn variant="ghost" small onClick={() => setPlanSource({ source: wkt, initialWeeks: 4 })}>Plan weeks</Btn>
                       <button onClick={() => { if (window.confirm(`Delete "${wkt.title}"? Athletes' logged sessions for it will lose their workout details.`)) onDeleteWorkout(wkt.id); }} style={{ background: "none", border: "none", color: C.red, fontSize: 20, cursor: "pointer", padding: "0 4px" }}>×</button>
                     </div>
                   </div>
@@ -361,8 +362,13 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
 
       </div>
 
-      {showBuilder && <BuilderModal athletes={athletes} defaultSeason={latestSeason} onSave={async (wkt) => { await onSaveWorkout(wkt); setShowBuilder(false); setEditWkt(null); }} onClose={() => { setShowBuilder(false); setEditWkt(null); }} editWkt={editWkt} />}
-      {planSource && <PlanWeeksModal source={planSource} athletes={athletes} onSaveWorkout={onSaveWorkout} onClose={() => setPlanSource(null)} />}
+      {showBuilder && <BuilderModal athletes={athletes} defaultSeason={latestSeason} isNew={builderNew} onSave={async (wkt, repeatWeeks = 1) => {
+        const ok = await onSaveWorkout(wkt);
+        if (ok === false) return;
+        setShowBuilder(false); setEditWkt(null);
+        if (repeatWeeks > 1) setPlanSource({ source: wkt, initialWeeks: repeatWeeks });
+      }} onClose={() => { setShowBuilder(false); setEditWkt(null); }} editWkt={editWkt} />}
+      {planSource && <PlanWeeksModal source={planSource.source} workouts={workouts} initialWeeks={planSource.initialWeeks} onSaveWorkout={onSaveWorkout} onClose={() => setPlanSource(null)} />}
       {editAthlete && <EditAthleteModal athlete={editAthlete} allTags={allTags} onSave={async (updated) => { await onUpdateAthlete(updated); setEditAthlete(null); if (selectedAthlete?.id === updated.id) setSelectedAthlete(updated); }} onArchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: true }); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onUnarchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: false }); setEditAthlete(null); }} onDelete={async () => { await onDeleteAthlete(editAthlete.id); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onClose={() => setEditAthlete(null)} />}
       {sessionDetail && <SessionDetailModal log={sessionDetail.log} workout={sessionDetail.workout} athlete={sessionDetail.athlete} onClose={() => setSessionDetail(null)} />}
       {showTestEntry && <TestScoreModal athletes={athletes} onSave={async (score) => { await onSaveTestScore(score); setShowTestEntry(false); }} onClose={() => setShowTestEntry(false)} />}

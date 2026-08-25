@@ -173,29 +173,37 @@ function titleTemplateFrom(title) {
 
 // grid[weekIndex][exerciseId] = { sets, reps, load }; anything missing falls
 // back to what the source workout prescribed.
+//
+// Week 1 IS the source workout — it keeps the workout's id (so saving updates it
+// rather than creating a twin) and its block and exercise ids (logs key their
+// sets by exercise id, so reissuing those would orphan anything already logged).
+// Later weeks are fresh workouts with fresh ids throughout.
 function buildPlannedWorkouts(source, opts, grid, makeId = uid) {
   const { weeks = 4, startDate, titleTemplate, startWeekNumber = 1, everyDays = 7 } = opts;
-  return Array.from({ length: weeks }, (_, i) => ({
-    id: makeId(),
-    title: (titleTemplate || "Week {n}").replace(/\{n\}/g, String(startWeekNumber + i)),
-    date: addDays(startDate, i * everyDays),
-    season: source.season || "",
-    assignees: [...(source.assignees ?? [])],
-    blocks: (source.blocks ?? []).map((b) => ({
-      ...b,
-      id: makeId(),
-      exercises: (b.exercises ?? []).map((ex) => {
-        const cell = grid?.[i]?.[ex.id] || {};
-        return {
-          ...ex,
-          id: makeId(),
-          sets: cell.sets ?? ex.sets,
-          reps: cell.reps ?? ex.reps,
-          load: cell.load ?? ex.load,
-        };
-      }),
-    })),
-  }));
+  return Array.from({ length: weeks }, (_, i) => {
+    const isSourceWeek = i === 0;
+    return {
+      id: isSourceWeek ? source.id : makeId(),
+      title: (titleTemplate || "Week {n}").replace(/\{n\}/g, String(startWeekNumber + i)),
+      date: addDays(startDate, i * everyDays),
+      season: source.season || "",
+      assignees: [...(source.assignees ?? [])],
+      blocks: (source.blocks ?? []).map((b) => ({
+        ...b,
+        id: isSourceWeek ? b.id : makeId(),
+        exercises: (b.exercises ?? []).map((ex) => {
+          const cell = grid?.[i]?.[ex.id] || {};
+          return {
+            ...ex,
+            id: isSourceWeek ? ex.id : makeId(),
+            sets: cell.sets ?? ex.sets,
+            reps: cell.reps ?? ex.reps,
+            load: cell.load ?? ex.load,
+          };
+        }),
+      })),
+    };
+  });
 }
 
 // ─── NEEDS ATTENTION ──────────────────────────────────────────────────────────

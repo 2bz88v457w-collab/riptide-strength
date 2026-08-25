@@ -7,12 +7,12 @@ import { Btn } from "./common";
 // Plan one weekday across several weeks. The movements come from a workout the
 // coach already built; only sets/reps/load vary week to week. Generates ordinary
 // independent workouts, so per-week tweaks afterwards are just normal edits.
-function PlanWeeksModal({ source, athletes, onSaveWorkout, onClose }) {
+function PlanWeeksModal({ source, workouts = [], initialWeeks = 4, onSaveWorkout, onClose }) {
   const isNarrow = useIsNarrow();
   const sourceWeekNo = parseInt((/week\s*(\d+)/i.exec(source.title || "") || [])[1]);
-  const [weeks, setWeeks] = useState(4);
-  const [startDate, setStartDate] = useState(addDays(source.date, 7));
-  const [startWeekNumber, setStartWeekNumber] = useState(isNaN(sourceWeekNo) ? 1 : sourceWeekNo + 1);
+  const [weeks, setWeeks] = useState(initialWeeks);
+  const [startDate, setStartDate] = useState(source.date);
+  const startWeekNumber = isNaN(sourceWeekNo) ? 1 : sourceWeekNo;
   const [titleTemplate, setTitleTemplate] = useState(titleTemplateFrom(source.title));
   const [busy, setBusy] = useState(null);
 
@@ -21,7 +21,7 @@ function PlanWeeksModal({ source, athletes, onSaveWorkout, onClose }) {
   // what actually changes week to week.
   const cellFrom = (ex) => ({ sets: ex.sets ?? "", reps: ex.reps ?? "", load: ex.load ?? "" });
   const [grid, setGrid] = useState(() =>
-    Object.fromEntries(Array.from({ length: 8 }, (_, i) => [i, Object.fromEntries(rows.map((r) => [r.ex.id, cellFrom(r.ex)]))]))
+    Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i, Object.fromEntries(rows.map((r) => [r.ex.id, cellFrom(r.ex)]))]))
   );
   const setCell = (wi, exId, field, value) =>
     setGrid((g) => ({ ...g, [wi]: { ...g[wi], [exId]: { ...g[wi][exId], [field]: value } } }));
@@ -37,11 +37,19 @@ function PlanWeeksModal({ source, athletes, onSaveWorkout, onClose }) {
 
   const dates = Array.from({ length: weeks }, (_, i) => addDays(startDate, i * 7));
   const assigneeCount = (source.assignees ?? []).length;
+  // Week 1 saves over the source workout; later weeks are new.
+  const newCount = Math.max(weeks - 1, 0);
+  // Warn about dates that already hold a different workout, so a season built in
+  // one sitting doesn't quietly double up.
+  const clashes = dates.slice(1).map((d, i) => ({
+    week: startWeekNumber + i + 1, date: d,
+    hits: workouts.filter((w) => w.date === d && w.id !== source.id),
+  })).filter((c) => c.hits.length > 0);
 
   const handleCreate = async () => {
     const planned = buildPlannedWorkouts(source, { weeks, startDate, titleTemplate, startWeekNumber }, grid);
     for (let i = 0; i < planned.length; i++) {
-      setBusy(`Creating ${i + 1} of ${planned.length}…`);
+      setBusy(`Saving ${i + 1} of ${planned.length}…`);
       const ok = await onSaveWorkout(planned[i]);
       if (ok === false) { setBusy(null); return; }   // error already surfaced
     }
@@ -79,20 +87,28 @@ function PlanWeeksModal({ source, athletes, onSaveWorkout, onClose }) {
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer", lineHeight: 1 }}>×</button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: isNarrow ? "1fr 1fr" : "90px 150px 110px 1fr", gap: 10, margin: "16px 0 6px" }}>
-          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>WEEKS</label>
-            <select value={weeks} onChange={(e) => setWeeks(parseInt(e.target.value))} style={inp}>{[2,3,4,5,6,7,8].map((n) => <option key={n} value={n}>{n}</option>)}</select></div>
-          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>FIRST DATE</label>
+        <div style={{ display: "grid", gridTemplateColumns: isNarrow ? "1fr 1fr" : "110px 150px 1fr", gap: 10, margin: "16px 0 6px" }}>
+          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>WEEKS TOTAL</label>
+            <select value={weeks} onChange={(e) => setWeeks(parseInt(e.target.value))} style={inp}>{[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => <option key={n} value={n}>{n}</option>)}</select></div>
+          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>WEEK 1 DATE</label>
             <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={inp} /></div>
-          <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>WEEK NO.</label>
-            <input value={startWeekNumber} onChange={(e) => setStartWeekNumber(parseInt(e.target.value) || 1)} inputMode="numeric" title="The number the first planned week is called" style={inp} /></div>
           <div style={{ gridColumn: isNarrow ? "1/-1" : "auto" }}><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>TITLE — {"{n}"} BECOMES THE WEEK NUMBER</label>
             <input value={titleTemplate} onChange={(e) => setTitleTemplate(e.target.value)} style={inp} /></div>
         </div>
 
         <p style={{ margin: "0 0 16px", fontSize: 12, color: C.mutedUp, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
-          Creates <strong style={{ color: C.teal }}>{weeks} workouts</strong> on {dates.map((d) => fmtDate(d)).join(" · ")} — each assigned to the same {assigneeCount} athlete{assigneeCount === 1 ? "" : "s"}{source.season ? `, season "${source.season}"` : ""}.
+          <strong style={{ color: C.teal }}>{weeks}-week block.</strong> Week {startWeekNumber} saves over <strong style={{ color: C.mutedUp }}>{source.title}</strong>
+          {newCount > 0 ? <> and {newCount} new workout{newCount === 1 ? "" : "s"} {newCount === 1 ? "is" : "are"} created</> : null}
+          {" — "}{dates.map((d) => fmtDate(d)).join(" · ")}, each for the same {assigneeCount} athlete{assigneeCount === 1 ? "" : "s"}{source.season ? `, season "${source.season}"` : ""}.
         </p>
+        {clashes.length > 0 && (
+          <div style={{ margin: "-8px 0 16px", fontSize: 12, color: C.gold, background: `${C.gold}12`, border: `1px solid ${C.gold}44`, borderRadius: 8, padding: "8px 12px" }}>
+            {clashes.map((c) => (
+              <p key={c.date} style={{ margin: "2px 0" }}>Week {c.week} ({fmtDate(c.date)}) already has: {c.hits.map((h) => h.title).join(", ")}</p>
+            ))}
+            <p style={{ margin: "6px 0 0", color: C.mutedUp }}>Creating anyway will leave both on that date.</p>
+          </div>
+        )}
 
         {rows.length === 0 && <p style={{ color: C.muted, textAlign: "center", padding: "28px 0" }}>This workout has no exercises to plan.</p>}
 
@@ -104,6 +120,7 @@ function PlanWeeksModal({ source, athletes, onSaveWorkout, onClose }) {
                 <div key={i} style={{ textAlign: "center" }}>
                   <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: C.teal }}>Week {startWeekNumber + i}</p>
                   <p style={{ margin: 0, fontSize: 10, color: C.muted }}>{fmtDate(dates[i])}</p>
+                  <p style={{ margin: 0, fontSize: 9, color: i === 0 ? C.mutedUp : C.muted, fontStyle: "italic" }}>{i === 0 ? "this workout" : "new"}</p>
                 </div>
               ))}
               {rows.map(({ ex, block, bi }, ri) => (
@@ -136,7 +153,7 @@ function PlanWeeksModal({ source, athletes, onSaveWorkout, onClose }) {
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18, borderTop: `1px solid ${C.border}`, paddingTop: 16, alignItems: "center" }}>
           {busy && <span style={{ fontSize: 12, color: C.mutedUp }}>{busy}</span>}
           <Btn variant="ghost" onClick={onClose} disabled={!!busy}>Cancel</Btn>
-          <Btn onClick={handleCreate} disabled={!!busy || rows.length === 0}>{busy ? "Working…" : `Create ${weeks} workouts`}</Btn>
+          <Btn onClick={handleCreate} disabled={!!busy || rows.length === 0}>{busy ? "Working…" : `Save ${weeks} workout${weeks === 1 ? "" : "s"}`}</Btn>
         </div>
       </div>
     </div>

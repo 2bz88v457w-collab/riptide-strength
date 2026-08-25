@@ -114,3 +114,30 @@ test('"Athletes add sets" is off by default and toggles per block', () => {
   fireEvent.click(toggles()[1]);
   expect(toggles()[1].title).toMatch(/Let athletes add their own set rows/);  // toggles back off
 });
+
+test('new workouts default to planning a block; edits do not offer it', () => {
+  const onSave = jest.fn();
+  const { unmount } = render(<BuilderModal athletes={[]} defaultSeason="" editWkt={null} isNew onSave={onSave} onClose={() => {}} />);
+  const repeat = screen.getByTitle(/Save this workout, then plan the whole block/);
+  expect(repeat.value).toBe('4');
+  expect(screen.getByText('Save & plan 4 weeks')).toBeInTheDocument();
+
+  // dropping to 1 makes it an ordinary one-off save
+  fireEvent.change(repeat, { target: { value: '1' } });
+  expect(screen.getByText(/^Save workout/)).toBeInTheDocument();
+  unmount();
+
+  // editing an existing workout has no repeat control at all
+  render(<BuilderModal athletes={[]} defaultSeason="" editWkt={{ id: 'w1', title: 'Existing', date: '2026-09-07', assignees: ['a1'], blocks: [] }} onSave={onSave} onClose={() => {}} />);
+  expect(screen.queryByTitle(/plan the whole block/)).toBeNull();
+});
+
+test('the chosen week count is handed to the save handler', () => {
+  const onSave = jest.fn();
+  render(<BuilderModal athletes={[{ id: 'a1', name: 'Ann', event: '8 Lane' }]} defaultSeason="" editWkt={null} isNew onSave={onSave} onClose={() => {}} />);
+  fireEvent.change(screen.getByPlaceholderText('e.g. Strength Power – Week 5'), { target: { value: 'Strength - Week 1 - Monday' } });
+  fireEvent.click(screen.getByText('Ann'));                       // assign someone so save is enabled
+  fireEvent.change(screen.getByTitle(/plan the whole block/), { target: { value: '6' } });
+  fireEvent.click(screen.getByText('Save & plan 6 weeks'));
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: 'Strength - Week 1 - Monday' }), 6);
+});

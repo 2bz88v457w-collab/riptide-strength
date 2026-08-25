@@ -9,7 +9,7 @@ import { PairPicker } from "./PairPicker";
 import { Btn } from "./common";
 
 // ─── WORKOUT BUILDER ──────────────────────────────────────────────────────────
-function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
+function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason, isNew = false }) {
   const isNarrow = useIsNarrow();
   const [title, setTitle] = useState(editWkt?.title || "");
   const [date, setDate] = useState(editWkt?.date || today());
@@ -22,6 +22,8 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
   const [generating, setGenerating] = useState(false);
   const [genErr, setGenErr] = useState("");
   const [saving, setSaving] = useState(false);
+  // New workouts default to planning a block; 1 makes it a one-off.
+  const [repeatWeeks, setRepeatWeeks] = useState(isNew ? 4 : 1);
   const [pairTarget, setPairTarget] = useState(null);
   const [swapTarget, setSwapTarget] = useState(null);
   const [pickerBlock, setPickerBlock] = useState(null); // block index the move picker adds to
@@ -91,7 +93,7 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
   const handleSave = async () => {
     if (!title || assignees.length === 0) return;
     setSaving(true);
-    await onSave({ id: editWkt?.id || uid(), title, date, season: season.trim(), assignees, blocks });
+    await onSave({ id: editWkt?.id || uid(), title, date, season: season.trim(), assignees, blocks }, repeatWeeks);
     setSaving(false);
   };
   const inp = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", width: "100%" };
@@ -108,6 +110,10 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>TITLE</label><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Strength Power – Week 5" style={inp} /></div>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>SEASON</label><input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="e.g. 2026 Long Course" style={inp} /></div>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>DATE</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp} /></div>
+          {isNew && <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>REPEAT FOR</label>
+            <select value={repeatWeeks} onChange={(e) => setRepeatWeeks(parseInt(e.target.value))} title="Save this workout, then plan the whole block week by week" style={inp}>
+              {[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => <option key={n} value={n}>{n === 1 ? "Just this week" : `${n} weeks`}</option>)}
+            </select></div>}
         </div>
         <div style={{ marginBottom: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -238,7 +244,7 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason }) {
         <button onClick={addBlock} style={{ background: "none", border: `1px dashed ${C.borderBright}`, borderRadius: 9, color: C.teal, fontSize: 13, fontWeight: 700, padding: "9px 16px", cursor: "pointer", fontFamily: "inherit", width: "100%", marginBottom: 4 }}>+ Add block</button>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8, borderTop: `1px solid ${C.border}`, paddingTop: 18 }}>
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
-          <Btn onClick={handleSave} disabled={!title || assignees.length === 0 || saving}>{saving ? "Saving…" : `Save workout (${assignees.length} athlete${assignees.length !== 1 ? "s" : ""})`}</Btn>
+          <Btn onClick={handleSave} disabled={!title || assignees.length === 0 || saving}>{saving ? "Saving…" : repeatWeeks > 1 ? `Save & plan ${repeatWeeks} weeks` : `Save workout (${assignees.length} athlete${assignees.length !== 1 ? "s" : ""})`}</Btn>
         </div>
       </div>
       {pairTarget && <PairPicker exercise={blocks[pairTarget.bi].exercises.find((e) => e.id === pairTarget.exId)} blockExercises={blocks[pairTarget.bi].exercises} onPick={handlePickPair} onClose={() => setPairTarget(null)} />}
