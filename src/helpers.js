@@ -151,6 +151,53 @@ function parsePrescribedRpe(load) {
   return m ? m[1] : null;
 }
 
+// ─── MULTI-WEEK PLANNING ──────────────────────────────────────────────────────
+// Movements stay put across a training block; only the prescription moves. So a
+// plan is one weekday's workout repeated N weeks, with sets/reps/load supplied
+// per week. The generated workouts are ordinary, independent workouts — editing
+// one later never reaches back into the plan.
+
+const addDays = (iso, n) => {
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+// "Strength - Week 2 - Monday" → "Strength - Week {n} - Monday" so the numbering
+// continues naturally; otherwise fall back to appending the week.
+function titleTemplateFrom(title) {
+  const t = (title || "").trim();
+  if (/week\s*\d+/i.test(t)) return t.replace(/week\s*\d+/i, "Week {n}");
+  return t ? `${t} — Week {n}` : "Week {n}";
+}
+
+// grid[weekIndex][exerciseId] = { sets, reps, load }; anything missing falls
+// back to what the source workout prescribed.
+function buildPlannedWorkouts(source, opts, grid, makeId = uid) {
+  const { weeks = 4, startDate, titleTemplate, startWeekNumber = 1, everyDays = 7 } = opts;
+  return Array.from({ length: weeks }, (_, i) => ({
+    id: makeId(),
+    title: (titleTemplate || "Week {n}").replace(/\{n\}/g, String(startWeekNumber + i)),
+    date: addDays(startDate, i * everyDays),
+    season: source.season || "",
+    assignees: [...(source.assignees ?? [])],
+    blocks: (source.blocks ?? []).map((b) => ({
+      ...b,
+      id: makeId(),
+      exercises: (b.exercises ?? []).map((ex) => {
+        const cell = grid?.[i]?.[ex.id] || {};
+        return {
+          ...ex,
+          id: makeId(),
+          sets: cell.sets ?? ex.sets,
+          reps: cell.reps ?? ex.reps,
+          load: cell.load ?? ex.load,
+        };
+      }),
+    })),
+  }));
+}
+
 // ─── NEEDS ATTENTION ──────────────────────────────────────────────────────────
 // Thresholds live here so they are easy to retune once a season of data exists.
 const ATTENTION = {
@@ -277,4 +324,4 @@ function attendanceByAthlete(sessions, athletes) {
   }).filter((r) => r.assigned > 0);
 }
 
-export { ATTENTION, assessmentCellKeys, attendanceByAthlete, computeAttention, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };
+export { ATTENTION, addDays, buildPlannedWorkouts, titleTemplateFrom, assessmentCellKeys, attendanceByAthlete, computeAttention, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };
