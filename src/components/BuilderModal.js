@@ -2,7 +2,6 @@ import { useState } from "react";
 import { C, blockColor, REQUIRED_MOVE_TYPES, EXERCISE_BANK, STROKES, DISTANCES } from "../constants";
 import { getMoveTypes, getWorkoutMoveTypes, uid, today, getSupersetLabels, initBlocks, emptyEx } from "../helpers";
 import { useIsNarrow } from "../hooks";
-import { generateWorkout } from "../ai";
 import { ExRow } from "./ExRow";
 import { MovePicker } from "./MovePicker";
 import { PairPicker } from "./PairPicker";
@@ -18,9 +17,6 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason, isNew
   const [season, setSeason] = useState(editWkt ? (editWkt.season || "") : (defaultSeason || ""));
   const [assignees, setAssignees] = useState(editWkt?.assignees || []);
   const [blocks, setBlocks] = useState(() => editWkt?.blocks ? JSON.parse(JSON.stringify(editWkt.blocks)) : initBlocks());
-  const [focus, setFocus] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [genErr, setGenErr] = useState("");
   const [saving, setSaving] = useState(false);
   // New workouts default to planning a block; 1 makes it a one-off.
   const [repeatWeeks, setRepeatWeeks] = useState(isNew ? 4 : 1);
@@ -82,14 +78,6 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason, isNew
   // Custom tags as one-tap assignment groups.
   const tagGroups = [...new Set(athletes.flatMap((a) => a.tags ?? []))].sort();
   const selectTagGroup = (t) => { const ids = athletes.filter((a) => (a.tags ?? []).includes(t)).map((a) => a.id); const allOn = ids.length > 0 && ids.every((id) => assignees.includes(id)); setAssignees((a) => allOn ? a.filter((x) => !ids.includes(x)) : [...new Set([...a, ...ids])]); };
-  const handleGen = async () => {
-    const target = athletes.find((a) => assignees.includes(a.id)) || athletes[0];
-    if (!target) return;
-    setGenerating(true); setGenErr("");
-    try { const b = await generateWorkout(target, focus); setBlocks(b); if (!title) setTitle(`${focus || "Strength Power"} – ${target.event || "Group"}`); }
-    catch { setGenErr("Generation failed — check API key in .env"); }
-    setGenerating(false);
-  };
   const handleSave = async () => {
     if (!title || assignees.length === 0) return;
     setSaving(true);
@@ -173,12 +161,6 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason, isNew
               </div>
             </div>
           </div>
-        </div>
-        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 20, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, fontWeight: 800, color: C.teal, whiteSpace: "nowrap" }}>✦ AI Generate</span>
-          <input value={focus} onChange={(e) => setFocus(e.target.value)} placeholder="e.g. strength power — DB front squat + box jumps" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 7, color: C.white, padding: "7px 10px", fontSize: 13, fontFamily: "inherit", flex: 1, minWidth: 180 }} />
-          <Btn onClick={handleGen} disabled={generating} small>{generating ? "Generating…" : "Generate"}</Btn>
-          {genErr && <span style={{ color: C.red, fontSize: 12 }}>{genErr}</span>}
         </div>
         <datalist id="exbank">{EXERCISE_BANK.map((e) => <option key={e} value={e} label={getMoveTypes(e).join(" · ")} />)}</datalist>
         {(() => {
