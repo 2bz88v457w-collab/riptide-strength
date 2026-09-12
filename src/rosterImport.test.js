@@ -118,4 +118,22 @@ describe('checking a paste against the roster', () => {
     const actions = buildImportActions(rows, { 2: 'skip', 6: 'skip' }, () => 'x');
     expect(actions.filter((a) => a.kind === 'create')).toEqual([]);
   });
+
+  test('renaming an archived near-match brings them back as active', () => {
+    const archivedRoster = [{ id: 'h1', name: 'Hanna Hale', event: '8 Lane', archived: true }];
+    const { rows: rs } = classifyRosterImport(parseRosterPaste('8 Lane\tHana\tHale'), archivedRoster);
+    expect(rs[0].status).toBe('close');
+    const [a] = buildImportActions(rs, { 0: 'rename:h1' }, () => 'x');
+    expect(a.athlete).toMatchObject({ name: 'Hana Hale', archived: false });
+  });
+
+  test('swimmers chosen for archiving are archived last, after adds and renames', () => {
+    const actions = buildImportActions(rows, {}, () => 'x', untouched);
+    expect(actions[actions.length - 1]).toEqual({ kind: 'update', archive: 'r5', athlete: { ...ROSTER[4], archived: true } });
+    expect(actions.filter((a) => a.archive)).toHaveLength(1);
+  });
+
+  test('a close match is never offered for archiving, whatever the coach picks for it', () => {
+    expect(untouched.map((a) => a.id)).not.toContain('r1');   // Bryan stays put even if Brian is skipped
+  });
 });

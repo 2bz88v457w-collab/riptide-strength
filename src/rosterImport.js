@@ -121,8 +121,10 @@ function classifyRosterImport(rows, athletes) {
 // creates an empty twin beside the swimmer who has all the logs.
 const DEFAULT_CHOICE = { new: "add", move: "move", unarchive: "unarchive", close: "skip" };
 
-// Turn the coach's per-row choices into roster-admin calls.
-function buildImportActions(classified, choices, makeId) {
+// Turn the coach's per-row choices into roster-admin calls. `archive` is the
+// list of swimmers not in the paste that the coach chose to archive; they go
+// last, after every add and rename has landed.
+function buildImportActions(classified, choices, makeId, archive = []) {
   const actions = [];
   classified.forEach((r, i) => {
     const choice = choices[i] ?? DEFAULT_CHOICE[r.status];
@@ -135,11 +137,13 @@ function buildImportActions(classified, choices, makeId) {
       actions.push({ kind: "update", row: i, athlete: { ...r.athlete, event: r.group, archived: false } });
     } else if (choice.startsWith("rename:")) {
       // Renaming keeps the swimmer's logs, PIN, and login (roster-admin moves
-      // the auth email to the new name).
+      // the auth email to the new name). Being on the new roster means they're
+      // active, so an archived near-match comes back too.
       const target = r.matches.find((a) => a.id === choice.slice(7));
-      if (target) actions.push({ kind: "update", row: i, athlete: { ...target, name: r.name, event: r.group } });
+      if (target) actions.push({ kind: "update", row: i, athlete: { ...target, name: r.name, event: r.group, archived: false } });
     }
   });
+  archive.forEach((a) => actions.push({ kind: "update", archive: a.id, athlete: { ...a, archived: true } }));
   return actions;
 }
 

@@ -23,20 +23,25 @@ function RosterImportModal({ athletes, onImport, onClose }) {
   const [preview, setPreview] = useState(null);   // { rows, untouched }
   const [choices, setChoices] = useState({});
   const [running, setRunning] = useState(false);
-  const [results, setResults] = useState(null);   // row index → { ok, error }
+  const [results, setResults] = useState(null);   // row index or "archive:<id>" → { ok, error }
+  // Archiving everyone missing from the paste is opt-in, with per-swimmer
+  // exceptions (test accounts, clinic kids who haven't moved up).
+  const [archiveMissing, setArchiveMissing] = useState(false);
+  const [keepActive, setKeepActive] = useState({});
 
   const runPreview = () => {
     setPreview(classifyRosterImport(parseRosterPaste(text), athletes));
-    setChoices({}); setResults(null);
+    setChoices({}); setResults(null); setArchiveMissing(false); setKeepActive({});
   };
   const choiceFor = (r, i) => choices[i] ?? DEFAULT_CHOICE[r.status];
-  const actions = preview ? buildImportActions(preview.rows, choices, uid) : [];
+  const archiveList = preview && archiveMissing ? preview.untouched.filter((a) => !keepActive[a.id]) : [];
+  const actions = preview ? buildImportActions(preview.rows, choices, uid, archiveList) : [];
 
   const apply = async () => {
     setRunning(true);
     const out = await onImport(actions);
     const byRow = {};
-    actions.forEach((a, k) => { byRow[a.row] = out[k]; });
+    actions.forEach((a, k) => { byRow[a.archive ? `archive:${a.archive}` : a.row] = out[k]; });
     setResults(byRow);
     setRunning(false);
   };
@@ -114,10 +119,39 @@ function RosterImportModal({ athletes, onImport, onClose }) {
           </div>
 
           {preview.untouched.length > 0 && !results && (
-            <p style={{ margin: "0 0 14px", fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
-              {preview.untouched.length} active swimmer{preview.untouched.length === 1 ? " isn't" : "s aren't"} in this list. Nothing happens to them — archive anyone who's left from their Edit screen.
-            </p>
+            <div style={{ background: C.bg, border: `1px solid ${archiveMissing ? `${C.gold}66` : C.border}`, borderRadius: 10, padding: "10px 12px", marginBottom: 14 }}>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer", fontSize: 13, fontWeight: 700, color: C.white }}>
+                <input type="checkbox" checked={archiveMissing} onChange={(e) => setArchiveMissing(e.target.checked)} />
+                Archive the {preview.untouched.length} active swimmer{preview.untouched.length === 1 ? "" : "s"} not in this list
+              </label>
+              <p style={{ margin: "4px 0 0 24px", fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                {archiveMissing
+                  ? "Untick anyone who should stay active. Archived swimmers keep their logs and history, and pasting them into a later import brings them back."
+                  : "Leave this off and nothing happens to them."}
+              </p>
+              {archiveMissing && (
+                <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr 1fr" : "repeat(3, 1fr)", gap: "4px 10px", margin: "10px 0 0 24px" }}>
+                  {preview.untouched.map((a) => (
+                    <label key={a.id} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: keepActive[a.id] ? C.muted : C.mutedUp, cursor: "pointer", minWidth: 0 }}>
+                      <input type="checkbox" checked={!keepActive[a.id]} onChange={(e) => setKeepActive((k) => ({ ...k, [a.id]: !e.target.checked }))} aria-label={`Archive ${a.name}`} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
+
+          {results && Object.keys(results).some((k) => k.startsWith("archive:")) && (() => {
+            const archived = preview.untouched.filter((a) => results[`archive:${a.id}`]);
+            const failedArchive = archived.filter((a) => !results[`archive:${a.id}`].ok);
+            return (
+              <p style={{ margin: "0 0 14px", fontSize: 12, color: failedArchive.length ? C.red : C.muted, lineHeight: 1.5 }}>
+                Archived {archived.length - failedArchive.length} swimmer{archived.length - failedArchive.length === 1 ? "" : "s"}
+                {failedArchive.length > 0 && <> · couldn't archive {failedArchive.map((a) => `${a.name} (${results[`archive:${a.id}`].error})`).join(", ")}</>}
+              </p>
+            );
+          })()}
 
           {!results ? (
             <div style={{ display: "flex", gap: 10 }}>

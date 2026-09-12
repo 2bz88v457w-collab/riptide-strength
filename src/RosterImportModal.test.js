@@ -57,3 +57,53 @@ test('editing the paste clears a stale preview', () => {
   fireEvent.change(screen.getByLabelText('Roster rows'), { target: { value: '8 Lane\tPascal\tZeruhn' } });
   expect(screen.queryByTestId('import-row-0')).toBeNull();
 });
+
+describe('archiving swimmers missing from the paste', () => {
+  const FULL = [
+    ...ROSTER,
+    { id: 'hs', name: 'Hana Hale', event: '8 Lane', archived: false },    // HS season — should archive
+    { id: 'cal', name: 'Cal Carter', event: '', archived: false },        // clinic kid — coach keeps active
+    { id: 'old', name: 'Olga Old', event: '8 Lane', archived: true },     // already archived — not listed
+  ];
+  const open = (onImport) => {
+    render(<RosterImportModal athletes={FULL} onImport={onImport} onClose={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Roster rows'), { target: { value: PASTE } });
+    fireEvent.click(screen.getByText('Check against roster'));
+  };
+
+  test('is off by default and archives nobody', async () => {
+    const onImport = jest.fn(async (actions) => actions.map(() => ({ ok: true })));
+    open(onImport);
+    expect(screen.getByLabelText(/Archive the 2 active swimmers not in this list/)).not.toBeChecked();
+    expect(screen.queryByLabelText('Archive Hana Hale')).toBeNull();
+    fireEvent.click(screen.getByText('Apply 1 change'));
+    await waitFor(() => expect(onImport).toHaveBeenCalled());
+    expect(onImport.mock.calls[0][0].some((a) => a.archive)).toBe(false);
+  });
+
+  test('ticking it lists every name, and anyone unticked stays active', async () => {
+    const onImport = jest.fn(async (actions) => actions.map(() => ({ ok: true })));
+    open(onImport);
+    fireEvent.click(screen.getByLabelText(/Archive the 2 active swimmers/));
+    expect(screen.getByLabelText('Archive Hana Hale')).toBeChecked();
+    expect(screen.getByLabelText('Archive Cal Carter')).toBeChecked();
+    expect(screen.queryByLabelText('Archive Olga Old')).toBeNull();       // already archived
+    expect(screen.queryByLabelText('Archive Bryan Stone')).toBeNull();    // close match, held for the coach
+
+    fireEvent.click(screen.getByLabelText('Archive Cal Carter'));         // keep Cal
+    fireEvent.click(screen.getByText('Apply 2 changes'));                 // Ivan + archive Hana
+    await waitFor(() => expect(onImport).toHaveBeenCalled());
+    const archives = onImport.mock.calls[0][0].filter((a) => a.archive);
+    expect(archives.map((a) => a.athlete.name)).toEqual(['Hana Hale']);
+    expect(archives[0].athlete.archived).toBe(true);
+    expect(await screen.findByText(/Archived 1 swimmer/)).toBeInTheDocument();
+  });
+
+  test('an archive that fails is named in the results', async () => {
+    open(async (actions) => actions.map((a) => (a.archive ? { ok: false, error: 'Network error' } : { ok: true })));
+    fireEvent.click(screen.getByLabelText(/Archive the 2 active swimmers/));
+    fireEvent.click(screen.getByText('Apply 3 changes'));
+    expect(await screen.findByText(/couldn't archive Hana Hale \(Network error\), Cal Carter \(Network error\)/)).toBeInTheDocument();
+  });
+});
+
