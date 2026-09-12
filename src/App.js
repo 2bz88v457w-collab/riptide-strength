@@ -173,6 +173,26 @@ export default function App() {
     return true;
   }, []);
 
+  // Bulk roster changes from the import screen. One roster-admin call per row,
+  // in order, and failures come back per row instead of as a stack of alerts.
+  const importRoster = useCallback(async (actions) => {
+    const results = [];
+    for (const a of actions) {
+      const res = a.kind === "create"
+        ? await rosterAdmin("create", { athlete: a.athlete, pin: a.pin })
+        : await rosterAdmin("update", { athlete: a.athlete, pin: null });
+      if (res.ok) {
+        const saved = res.data.athlete;
+        setAthletes((as) => a.kind === "create" ? [...as, saved] : as.map((x) => x.id === saved.id ? saved : x));
+        results.push({ ok: true });
+      } else {
+        console.error("Roster import row failed:", res.error);
+        results.push({ ok: false, error: res.error?.message || "Failed" });
+      }
+    }
+    return results;
+  }, []);
+
   const coachUpdateAthlete = useCallback(async (athleteWithPin) => {
     const { pin, ...athlete } = athleteWithPin;
     const { ok, error, data } = await rosterAdmin("update", { athlete, pin: pin || null });
@@ -222,7 +242,7 @@ export default function App() {
   if (loading) return <LoadingScreen />;
 
   const role = sessionRole(authSession);
-  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onSaveTestScore={saveTestScore} onBulkTag={bulkTagAthletes} onLogout={handleLogout} />;
+  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onImportRoster={importRoster}onSaveTestScore={saveTestScore} onBulkTag={bulkTagAthletes} onLogout={handleLogout} />;
 
   const me = athletes.find((a) => a.user_id === authSession.user.id);
   if (!me) return (

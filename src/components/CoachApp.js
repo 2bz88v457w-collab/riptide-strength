@@ -9,12 +9,13 @@ import { BuilderModal } from "./BuilderModal";
 import { EditAthleteModal } from "./EditAthleteModal";
 import { ProgressDashboard } from "./ProgressDashboard";
 import { ProgressionTab } from "./ProgressionTab";
+import { RosterImportModal } from "./RosterImportModal";
 import { SessionDetailModal } from "./SessionDetailModal";
 import { TestScoreModal } from "./TestScoreModal";
 import { Avatar, Btn, StatCard } from "./common";
 
 // ─── COACH APP ────────────────────────────────────────────────────────────────
-function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onSaveTestScore, onBulkTag, onLogout }) {
+function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onImportRoster, onSaveTestScore, onBulkTag, onLogout }) {
   const [tab, setTab] = useState("workouts");
   const [showBuilder, setShowBuilder] = useState(false);
   const [planSource, setPlanSource] = useState(null);   // { source, initialWeeks }
@@ -23,6 +24,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
   const [selectedAthlete, setSelectedAthlete] = useState(null);
   const [editAthlete, setEditAthlete] = useState(null);
   const [showAddAthlete, setShowAddAthlete] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [showTestEntry, setShowTestEntry] = useState(false);
   const [sessionDetail, setSessionDetail] = useState(null);
   const [newAthlete, setNewAthlete] = useState({ name: "", event: "", pin: "" });
@@ -175,7 +177,10 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <div><h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Roster</h1><p style={{ margin: "3px 0 0", color: C.muted, fontSize: 13 }}>{activeAthletes.length} active{archivedAthletes.length > 0 ? ` · ${archivedAthletes.length} archived` : ""}</p></div>
-              <Btn small onClick={() => setShowAddAthlete(true)}>+ Add athlete</Btn>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <Btn variant="ghost" small onClick={() => setShowImport(true)}>Import roster</Btn>
+                <Btn small onClick={() => setShowAddAthlete(true)}>+ Add athlete</Btn>
+              </div>
             </div>
             <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
               <input value={rosterSearch} onChange={(e) => setRosterSearch(e.target.value)} placeholder="Search name or school…" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "7px 12px", fontSize: 13, fontFamily: "inherit", flex: 1 }} />
@@ -369,6 +374,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
         if (repeatWeeks > 1) setPlanSource({ source: wkt, initialWeeks: repeatWeeks });
       }} onClose={() => { setShowBuilder(false); setEditWkt(null); }} editWkt={editWkt} />}
       {planSource && <PlanWeeksModal source={planSource.source} workouts={workouts} initialWeeks={planSource.initialWeeks} onSaveWorkout={onSaveWorkout} onClose={() => setPlanSource(null)} />}
+      {showImport && <RosterImportModal athletes={athletes} onImport={onImportRoster} onClose={() => setShowImport(false)} />}
       {editAthlete && <EditAthleteModal athlete={editAthlete} allTags={allTags} onSave={async (updated) => { await onUpdateAthlete(updated); setEditAthlete(null); if (selectedAthlete?.id === updated.id) setSelectedAthlete(updated); }} onArchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: true }); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onUnarchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: false }); setEditAthlete(null); }} onDelete={async () => { await onDeleteAthlete(editAthlete.id); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onClose={() => setEditAthlete(null)} />}
       {sessionDetail && <SessionDetailModal log={sessionDetail.log} workout={sessionDetail.workout} athlete={sessionDetail.athlete} onClose={() => setSessionDetail(null)} />}
       {showTestEntry && <TestScoreModal athletes={athletes} onSave={async (score) => { await onSaveTestScore(score); setShowTestEntry(false); }} onClose={() => setShowTestEntry(false)} />}
