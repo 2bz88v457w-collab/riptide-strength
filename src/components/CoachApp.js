@@ -362,7 +362,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
 
       </div>
 
-      {showBuilder && <BuilderModal athletes={athletes} defaultSeason={latestSeason} isNew={builderNew} onSave={async (wkt, repeatWeeks = 1) => {
+      {showBuilder && <BuilderModal athletes={activeAthletes} defaultSeason={latestSeason} isNew={builderNew} onSave={async (wkt, repeatWeeks = 1) => {
         const ok = await onSaveWorkout(wkt);
         if (ok === false) return;
         setShowBuilder(false); setEditWkt(null);
