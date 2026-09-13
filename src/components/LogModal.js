@@ -4,7 +4,9 @@ import { fmtDate, getSupersetLabels, getLastSets, parseLoadNum, getProgressionFi
 import { Btn } from "./common";
 
 // ─── LOG MODAL ────────────────────────────────────────────────────────────────
-function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progressions = [], onConsumeProgressions, onSave, onClose }) {
+// preview: the coach's look at a workout from the builder — same screen, not
+// tied to a swimmer, and nothing can be saved from it.
+function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progressions = [], onConsumeProgressions, onSave, onClose, preview = false }) {
   // Coach bumps that fire in this session, frozen at open: { [exId]: { rule, base, target } }.
   // Only fresh logs get pre-filled — re-opening a saved log never re-fills or re-consumes.
   const [prefills] = useState(() => {
@@ -134,6 +136,12 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
           <div><h2 style={{ margin: 0, color: C.white, fontSize: 18, fontWeight: 800 }}>{workout.title}</h2><p style={{ margin: "3px 0 0", color: C.muted, fontSize: 12 }}>{fmtDate(workout.date)}</p></div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
         </div>
+        {preview && (
+          <div role="note" style={{ margin: "-6px 0 18px", padding: "9px 12px", background: `${C.gold}14`, border: `1px solid ${C.gold}55`, borderRadius: 10, fontSize: 12.5, color: C.white, lineHeight: 1.45 }}>
+            <strong style={{ color: C.gold }}>Athlete preview.</strong> This is the screen swimmers log on. Type into it freely — nothing here is saved.
+            <span style={{ color: C.muted }}> Swimmers also see their last session, best, and any coach bump above each exercise.</span>
+          </div>
+        )}
         {workout.blocks.map((block, bi) => {
           const labels = getSupersetLabels(block.exercises);
           const seen = new Set(); const rendered = [];
@@ -176,7 +184,9 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>SESSION NOTES</label><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="How did it feel? Any PRs? Anything to flag?" rows={3} style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, padding: "9px 12px", fontSize: 13, width: "100%", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit" }} /></div>
           <div><label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 5 }}>RPE 1–10</label><input value={rpe} onChange={(e) => setRpe(e.target.value)} type="number" min="1" max="10" placeholder="7" style={{ background: C.surfaceUp, border: `1px solid ${C.border}`, borderRadius: 8, color: C.gold, padding: "9px 8px", fontSize: 28, fontWeight: 800, width: "100%", boxSizing: "border-box", textAlign: "center", fontFamily: "inherit" }} /></div>
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save session"}</Btn></div>
+        {preview
+          ? <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12 }}><span style={{ fontSize: 12, color: C.muted }}>Preview — not saved</span><Btn onClick={onClose}>Back to builder</Btn></div>
+          : <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save session"}</Btn></div>}
       </div>
     </div>
   );

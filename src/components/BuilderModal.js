@@ -6,6 +6,7 @@ import { ExRow } from "./ExRow";
 import { MovePicker } from "./MovePicker";
 import { PairPicker } from "./PairPicker";
 import { Btn } from "./common";
+import { LogModal } from "./LogModal";
 
 // ─── WORKOUT BUILDER ──────────────────────────────────────────────────────────
 function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason, isNew = false }) {
@@ -18,6 +19,7 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason, isNew
   const [assignees, setAssignees] = useState(editWkt?.assignees || []);
   const [blocks, setBlocks] = useState(() => editWkt?.blocks ? JSON.parse(JSON.stringify(editWkt.blocks)) : initBlocks());
   const [saving, setSaving] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   // New workouts default to planning a block; 1 makes it a one-off.
   const [repeatWeeks, setRepeatWeeks] = useState(isNew ? 4 : 1);
   const [pairTarget, setPairTarget] = useState(null);
@@ -225,7 +227,9 @@ function BuilderModal({ athletes, onSave, onClose, editWkt, defaultSeason, isNew
         })}
         <button onClick={addBlock} style={{ background: "none", border: `1px dashed ${C.borderBright}`, borderRadius: 9, color: C.teal, fontSize: 13, fontWeight: 700, padding: "9px 16px", cursor: "pointer", fontFamily: "inherit", width: "100%", marginBottom: 4 }}>+ Add block</button>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8, borderTop: `1px solid ${C.border}`, paddingTop: 18 }}>
+          <Btn variant="ghost" onClick={() => setShowPreview(true)}>Preview</Btn>
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+          {showPreview && <LogModal preview workout={{ id: editWkt?.id || "preview", title: title || "Untitled workout", date, blocks }} athleteId={null} allLogs={[]} allWorkouts={[]} progressions={[]} onSave={() => false} onClose={() => setShowPreview(false)} />}
           <Btn onClick={handleSave} disabled={!title || assignees.length === 0 || saving}>{saving ? "Saving…" : repeatWeeks > 1 ? `Save & plan ${repeatWeeks} weeks` : `Save workout (${assignees.length} athlete${assignees.length !== 1 ? "s" : ""})`}</Btn>
         </div>
       </div>
