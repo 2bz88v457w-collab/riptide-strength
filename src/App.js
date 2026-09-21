@@ -35,6 +35,8 @@ export default function App() {
   const [testScores, setTestScores] = useState([]);
   const [progressions, setProgressions] = useState([]);
   const [assessments, setAssessments] = useState([]);
+  const [noteReviews, setNoteReviews] = useState([]);
+  const [reviewsReady, setReviewsReady] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,6 +78,22 @@ export default function App() {
     fetchAll();
     return () => { cancelled = true; };
   }, [userId]);
+
+  // Coach-only, and optional: until supabase/07-note-reviews.sql has been run
+  // the table doesn't exist. Everything else works as before; only "Mark
+  // addressed" stays disabled, so this is a warning, not an alert.
+  const isCoach = sessionRole(authSession) === "coach";
+  useEffect(() => {
+    if (!userId || !isCoach) return;
+    let cancelled = false;
+    supabase.from("note_reviews").select("*").then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) { console.warn("Note reviews unavailable:", error.message); setReviewsReady(false); return; }
+      setNoteReviews(data || []);
+      setReviewsReady(true);
+    });
+    return () => { cancelled = true; };
+  }, [userId, isCoach]);
 
   const saveWorkout = useCallback(async (wkt) => {
     const payload = { ...wkt, blocks: JSON.stringify(wkt.blocks), assignees: JSON.stringify(wkt.assignees) };
@@ -235,6 +253,16 @@ export default function App() {
     return true;
   }, []);
 
+  // Clears a pain/soreness alert. Records which version of the notes was seen,
+  // so an edit by the athlete afterwards raises the flag again.
+  const markNoteAddressed = useCallback(async (log) => {
+    const row = { log_id: log.id, reviewed_logged_at: Number(log.loggedAt) || 0, reviewed_at: new Date().toISOString() };
+    const { error } = await supabase.from("note_reviews").upsert(row);
+    if (error) { reportDbError("Marking note addressed", error); return false; }
+    setNoteReviews((rs) => [...rs.filter((r) => r.log_id !== log.id), row]);
+    return true;
+  }, []);
+
   const handleLogout = useCallback(() => { signOut(); }, []);
 
   if (authSession === undefined) return <LoadingScreen />;
@@ -242,7 +270,7 @@ export default function App() {
   if (loading) return <LoadingScreen />;
 
   const role = sessionRole(authSession);
-  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onImportRoster={importRoster}onSaveTestScore={saveTestScore} onBulkTag={bulkTagAthletes} onLogout={handleLogout} />;
+  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onImportRoster={importRoster} onSaveTestScore={saveTestScore} noteReviews={noteReviews} reviewsReady={reviewsReady} onMarkNoteAddressed={markNoteAddressed} onBulkTag={bulkTagAthletes} onLogout={handleLogout} />;
 
   const me = athletes.find((a) => a.user_id === authSession.user.id);
   if (!me) return (

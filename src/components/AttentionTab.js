@@ -2,6 +2,7 @@ import { useState } from "react";
 import { C, STROKES, DISTANCES } from "../constants";
 import { computeAttention, ATTENTION } from "../helpers";
 import { Avatar } from "./common";
+import { NoteCard } from "./NotesTab";
 
 const FLAG_STYLE = {
   quiet: { color: C.red, icon: "◷" },
@@ -11,7 +12,7 @@ const FLAG_STYLE = {
 
 // Triage view: who to chase, who might be overreaching, who is coasting.
 // Athletes with nothing worth flagging never appear.
-function AttentionTab({ athletes, workouts, logs }) {
+function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady = false, onMarkAddressed }) {
   const [groupFilter, setGroupFilter] = useState("All");
   const poolGroups = [...new Set(athletes.map((a) => a.event).filter(Boolean))];
   const tags = [...new Set(athletes.flatMap((a) => a.tags ?? []))].sort();
@@ -26,6 +27,9 @@ function AttentionTab({ athletes, workouts, logs }) {
   const roster = athletes.filter(inGroup);
   const rows = computeAttention(roster, workouts, logs);
   const count = (kind) => rows.filter((r) => r.flags.some((f) => f.kind === kind)).length;
+  // Notes are matched by athlete, so the group filter applies to them too.
+  const notes = noteFlags.filter((c) => inGroup(c.athlete));
+  const noteCount = (level) => notes.filter((c) => c.level === level).length;
 
   const pill = (label, active, onClick, key) => (
     <button key={key} onClick={onClick} style={{ border: `1px solid ${active ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: active ? C.tealGlow : "transparent", color: active ? C.teal : C.mutedUp }}>{label}</button>
@@ -36,7 +40,7 @@ function AttentionTab({ athletes, workouts, logs }) {
       <div style={{ marginBottom: 16 }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Needs attention</h1>
         <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>
-          Athletes who missed assigned sessions, whose RPE is climbing, or whose RPE has gone flat and low.
+          Notes that mention pain or injury, athletes who missed assigned sessions, whose RPE is climbing, or whose RPE has gone flat and low.
           Anyone not listed is fine.
         </p>
       </div>
@@ -47,9 +51,9 @@ function AttentionTab({ athletes, workouts, logs }) {
         {tags.map((t) => pill(`🏷 ${t}`, groupFilter === t, () => setGroupFilter(t), "t-" + t))}
       </div>
 
-      {rows.length > 0 && (
+      {(rows.length > 0 || notes.length > 0) && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
-          {[["Not logging", count("quiet"), C.red], ["RPE climbing", count("ramp"), C.gold], ["RPE flat & low", count("flat"), "#A78BFA"]].map(([label, n, color]) => (
+          {[["Pain / injury notes", noteCount("pain"), C.red], ["Sore (last 7 days)", noteCount("sore"), C.gold], ["Not logging", count("quiet"), C.red], ["RPE climbing", count("ramp"), C.gold], ["RPE flat & low", count("flat"), "#A78BFA"]].map(([label, n, color]) => (
             <div key={label} style={{ background: C.surfaceUp, borderRadius: 12, padding: "14px 16px", border: `1px solid ${C.border}` }}>
               <p style={{ margin: 0, fontSize: 11, color: C.muted, letterSpacing: ".06em", textTransform: "uppercase" }}>{label}</p>
               <p style={{ margin: "5px 0 0", fontSize: 26, fontWeight: 800, color: n ? color : C.muted }}>{n}</p>
@@ -58,7 +62,19 @@ function AttentionTab({ athletes, workouts, logs }) {
         </div>
       )}
 
-      {rows.length === 0 && (
+      {notes.length > 0 && (
+        <div style={{ marginBottom: 22 }}>
+          <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 800, color: C.red, textTransform: "uppercase", letterSpacing: ".06em" }}>Notes to look at</p>
+          {!reviewsReady && (
+            <p style={{ margin: "0 0 8px", fontSize: 12, color: C.gold }}>
+              "Mark addressed" turns on once <code>supabase/07-note-reviews.sql</code> has been run in Supabase.
+            </p>
+          )}
+          {notes.map((c) => <NoteCard key={c.log.id ?? `${c.log.athleteId}-${c.log.workoutId}`} card={c} reviewsReady={reviewsReady} onMarkAddressed={onMarkAddressed} />)}
+        </div>
+      )}
+
+      {rows.length === 0 && notes.length === 0 && (
         <div style={{ textAlign: "center", padding: "48px 0", color: C.muted }}>
           <p style={{ fontSize: 32, margin: "0 0 8px" }}>✓</p>
           <p style={{ margin: 0, color: C.teal, fontWeight: 700 }}>Nobody needs attention right now.</p>

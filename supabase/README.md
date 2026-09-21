@@ -77,3 +77,10 @@ as auth passwords). From then on the Edit Athlete screen shows a blank
   their PIN keeps working.
 - Two athletes with identical full names cannot both log in (same as the old
   system); differentiate the name on the roster.
+
+## Later additions
+
+- `07-note-reviews.sql` (safe anytime, safe to re-run) — the coach's "Mark
+  addressed" record for pain/injury flags in athlete notes. Coach-only RLS.
+  Until it's run, the Notes tab and alerts work; only "Mark addressed" is
+  disabled.

@@ -9,13 +9,15 @@ import { BuilderModal } from "./BuilderModal";
 import { EditAthleteModal } from "./EditAthleteModal";
 import { ProgressDashboard } from "./ProgressDashboard";
 import { ProgressionTab } from "./ProgressionTab";
+import { NotesTab } from "./NotesTab";
+import { activeNoteFlags, buildNoteFeed } from "../notes";
 import { RosterImportModal } from "./RosterImportModal";
 import { SessionDetailModal } from "./SessionDetailModal";
 import { TestScoreModal } from "./TestScoreModal";
 import { Avatar, Btn, StatCard } from "./common";
 
 // ─── COACH APP ────────────────────────────────────────────────────────────────
-function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onImportRoster, onSaveTestScore, onBulkTag, onLogout }) {
+function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onImportRoster, onSaveTestScore, onBulkTag, onLogout, noteReviews = [], reviewsReady = false, onMarkNoteAddressed }) {
   const [tab, setTab] = useState("workouts");
   const [showBuilder, setShowBuilder] = useState(false);
   const [planSource, setPlanSource] = useState(null);   // { source, initialWeeks }
@@ -55,6 +57,9 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
   const champTags = ["Regional", "State"].filter((tag) => athletes.some((a) => a.champTag === tag && !a.archived));
 
   const activeAthletes = athletes.filter((a) => !a.archived);
+  const noteFeed = buildNoteFeed(logs, workouts, athletes, noteReviews);
+  const noteFlags = activeNoteFlags(noteFeed);
+  const painFlagCount = noteFlags.filter((c) => c.level === "pain").length;
   const rosterSpecialties = [...STROKES.map((s) => ["stroke", s, "🏊"]), ...DISTANCES.map((d) => ["distance", d, "⏱"])].filter(([f, v]) => activeAthletes.some((a) => a[f] === v));
   // Custom tags: an athlete can carry any number, alongside pool group + champ tag.
   const allTags = [...new Set(athletes.flatMap((a) => a.tags ?? []))].sort();
@@ -118,7 +123,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, maxWidth: "100%", minWidth: 0 }}>
             <div style={{ display: "flex", background: C.bg, borderRadius: 30, padding: 3, overflowX: "auto", maxWidth: "100%" }}>
-              {["workouts","roster","logs","attention","attendance","bumps","Assessments","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize", whiteSpace: "nowrap", flexShrink: 0 }}>{t}</button>)}
+              {["workouts","roster","logs","notes","attention","attendance","bumps","Assessments","progress"].map((t) => <button key={t} onClick={() => { setTab(t); setSelectedAthlete(null); }} style={{ border: "none", borderRadius: 26, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === t ? C.teal : "transparent", color: tab === t ? C.bg : C.muted, transition: "all .15s", textTransform: "capitalize", whiteSpace: "nowrap", flexShrink: 0 }}>{t}{t === "attention" && noteFlags.length > 0 && <span aria-label={`${noteFlags.length} note alert${noteFlags.length === 1 ? "" : "s"}`} style={{ marginLeft: 6, background: painFlagCount ? C.red : C.gold, color: C.bg, borderRadius: 10, padding: "0 6px", fontSize: 10, fontWeight: 900 }}>{noteFlags.length}</span>}</button>)}
             </div>
             <button onClick={onLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>Log out</button>
           </div>
@@ -345,8 +350,11 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
           </div>
         )}
 
+        {tab === "notes" && (
+          <NotesTab feed={noteFeed} athletes={athletes} reviewsReady={reviewsReady} onMarkAddressed={onMarkNoteAddressed} />
+        )}
         {tab === "attention" && (
-          <AttentionTab athletes={activeAthletes} workouts={workouts} logs={logs} />
+          <AttentionTab noteFlags={noteFlags} reviewsReady={reviewsReady} onMarkAddressed={onMarkNoteAddressed} athletes={activeAthletes} workouts={workouts} logs={logs} />
         )}
 
         {tab === "attendance" && (
