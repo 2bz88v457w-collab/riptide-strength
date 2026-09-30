@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { C, STROKES, DISTANCES } from "../constants";
+import { fmtDate } from "../helpers";
 import { applyAttentionChecks, computeAttention, ATTENTION } from "../helpers";
 import { Avatar } from "./common";
 import { NoteCard } from "./NotesTab";
@@ -15,6 +16,10 @@ const FLAG_STYLE = {
 function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady = false, onMarkAddressed, checks = [], checksReady = false, onCheck, onUncheck }) {
   const [groupFilter, setGroupFilter] = useState("All");
   const [showChecked, setShowChecked] = useState(false);
+  const [seasonFilter, setSeasonFilter] = useState("All");
+  // Inclusive date range; blank means open-ended on that side.
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [busyKey, setBusyKey] = useState(null);
   const poolGroups = [...new Set(athletes.map((a) => a.event).filter(Boolean))];
   const tags = [...new Set(athletes.flatMap((a) => a.tags ?? []))].sort();
@@ -27,7 +32,16 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
     return a.event === groupFilter;
   };
   const roster = athletes.filter(inGroup);
-  const allRows = computeAttention(roster, workouts, logs);
+  // Season and date scope what the flags are computed from — including the RPE
+  // trend, which otherwise reaches back into last season's sessions. With an end
+  // date set, "no log in 7 days" counts back from that date rather than today.
+  const seasons = [...new Set([...workouts].sort((a, b) => b.date.localeCompare(a.date)).map((w) => w.season).filter(Boolean))];
+  const inRange = (w) => (seasonFilter === "All" || w.season === seasonFilter) && (!from || w.date >= from) && (!to || w.date <= to);
+  const scopedWorkouts = workouts.filter(inRange);
+  const scopedIds = new Set(scopedWorkouts.map((w) => w.id));
+  const scopedLogs = logs.filter((l) => scopedIds.has(l.workoutId));
+  const asOf = to ? new Date(to + "T12:00:00") : new Date();
+  const allRows = computeAttention(roster, scopedWorkouts, scopedLogs, { today: asOf });
   // Flags the coach has checked off drop out of the list until they change.
   const { open: rows, checked } = applyAttentionChecks(allRows, checks);
   const count = (kind) => rows.filter((r) => r.flags.some((f) => f.kind === kind)).length;
@@ -42,7 +56,9 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
     setBusyKey(null);
   };
   // Notes are matched by athlete, so the group filter applies to them too.
-  const notes = noteFlags.filter((c) => inGroup(c.athlete));
+  const notes = noteFlags.filter((c) => inGroup(c.athlete)
+    && (seasonFilter === "All" || c.workout?.season === seasonFilter)
+    && (!from || c.date >= from) && (!to || c.date <= to));
   const noteCount = (level) => notes.filter((c) => c.level === level).length;
 
   const pill = (label, active, onClick, key) => (
@@ -56,7 +72,33 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
         <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>
           Notes that mention pain or injury, athletes who missed assigned sessions, whose RPE is climbing, or whose RPE has gone flat and low.
           Anyone not listed is fine.
+          {(from || to || seasonFilter !== "All") && (
+            <span style={{ color: C.teal }}>
+              {" "}Counting {seasonFilter !== "All" ? `${seasonFilter} sessions` : "sessions"}
+              {from ? ` from ${fmtDate(from)}` : ""}{to ? ` to ${fmtDate(to)}` : ""}
+              {to ? ", as of that date." : "."}
+            </span>
+          )}
         </p>
+      </div>
+
+      {seasons.length > 0 && (
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
+          {pill("All seasons", seasonFilter === "All", () => setSeasonFilter("All"), "s-all")}
+          {seasons.map((s) => pill(s, seasonFilter === s, () => setSeasonFilter(s), "s-" + s))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+        <label style={{ fontSize: 12, color: C.muted, display: "flex", alignItems: "center", gap: 6 }}>
+          From
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From date" style={{ background: C.surfaceUp, border: `1px solid ${from ? C.teal : C.border}`, borderRadius: 8, color: C.white, padding: "6px 10px", fontSize: 13, fontFamily: "inherit" }} />
+        </label>
+        <label style={{ fontSize: 12, color: C.muted, display: "flex", alignItems: "center", gap: 6 }}>
+          To
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To date" style={{ background: C.surfaceUp, border: `1px solid ${to ? C.teal : C.border}`, borderRadius: 8, color: C.white, padding: "6px 10px", fontSize: 13, fontFamily: "inherit" }} />
+        </label>
+        {(from || to) && <button onClick={() => { setFrom(""); setTo(""); }} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, fontSize: 12, padding: "7px 12px", cursor: "pointer", fontFamily: "inherit" }}>Clear dates</button>}
       </div>
 
       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 16 }}>
