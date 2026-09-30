@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { C, STROKES, DISTANCES } from "../constants";
-import { computeAttention, ATTENTION } from "../helpers";
+import { applyAttentionChecks, computeAttention, ATTENTION } from "../helpers";
 import { Avatar } from "./common";
 import { NoteCard } from "./NotesTab";
 
@@ -12,8 +12,10 @@ const FLAG_STYLE = {
 
 // Triage view: who to chase, who might be overreaching, who is coasting.
 // Athletes with nothing worth flagging never appear.
-function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady = false, onMarkAddressed }) {
+function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady = false, onMarkAddressed, checks = [], checksReady = false, onCheck, onUncheck }) {
   const [groupFilter, setGroupFilter] = useState("All");
+  const [showChecked, setShowChecked] = useState(false);
+  const [busyKey, setBusyKey] = useState(null);
   const poolGroups = [...new Set(athletes.map((a) => a.event).filter(Boolean))];
   const tags = [...new Set(athletes.flatMap((a) => a.tags ?? []))].sort();
 
@@ -25,8 +27,20 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
     return a.event === groupFilter;
   };
   const roster = athletes.filter(inGroup);
-  const rows = computeAttention(roster, workouts, logs);
+  const allRows = computeAttention(roster, workouts, logs);
+  // Flags the coach has checked off drop out of the list until they change.
+  const { open: rows, checked } = applyAttentionChecks(allRows, checks);
   const count = (kind) => rows.filter((r) => r.flags.some((f) => f.kind === kind)).length;
+  const check = async (athleteId, flag) => {
+    setBusyKey(`${athleteId}|${flag.kind}`);
+    await onCheck(athleteId, flag.kind, flag.state);
+    setBusyKey(null);
+  };
+  const uncheck = async (athleteId, kind) => {
+    setBusyKey(`${athleteId}|${kind}`);
+    await onUncheck(athleteId, kind);
+    setBusyKey(null);
+  };
   // Notes are matched by athlete, so the group filter applies to them too.
   const notes = noteFlags.filter((c) => inGroup(c.athlete));
   const noteCount = (level) => notes.filter((c) => c.level === level).length;
@@ -85,6 +99,12 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
         </div>
       )}
 
+      {onCheck && !checksReady && rows.length > 0 && (
+        <p style={{ margin: "0 0 10px", fontSize: 12, color: C.gold }}>
+          "Checked" turns on once <code>supabase/08-attention-checks.sql</code> has been run in Supabase.
+        </p>
+      )}
+
       {rows.map(({ athlete: a, flags, logCount }) => (
         <div key={a.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8, display: "flex", gap: 12, alignItems: "flex-start" }}>
           <Avatar name={a.name} size={38} />
@@ -97,18 +117,50 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
             {flags.map((f) => {
               const st = FLAG_STYLE[f.kind] || { color: C.muted, icon: "•" };
               return (
-                <div key={f.kind} style={{ display: "flex", alignItems: "baseline", gap: 7, marginTop: 4 }}>
+                <div key={f.kind} style={{ display: "flex", alignItems: "baseline", gap: 7, marginTop: 4, flexWrap: "wrap" }}>
                   <span style={{ color: st.color, fontSize: 11, flexShrink: 0 }}>{st.icon}</span>
-                  <p style={{ margin: 0, fontSize: 12.5 }}>
+                  <p style={{ margin: 0, fontSize: 12.5, flex: 1, minWidth: 160 }}>
                     <span style={{ color: st.color, fontWeight: 700 }}>{f.label}</span>
                     <span style={{ color: C.mutedUp }}> — {f.detail}</span>
                   </p>
+                  {onCheck && (
+                    <button
+                      onClick={() => check(a.id, f)}
+                      disabled={!checksReady || busyKey === `${a.id}|${f.kind}`}
+                      title={checksReady ? "Hide this until something changes — a missed session or a new RPE brings it back" : "Run supabase/08-attention-checks.sql in Supabase to turn this on"}
+                      style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7, color: C.mutedUp, fontSize: 11, fontWeight: 700, padding: "3px 10px", cursor: checksReady ? "pointer" : "not-allowed", fontFamily: "inherit", opacity: checksReady ? 1 : 0.5, flexShrink: 0 }}
+                    >Checked</button>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
       ))}
+
+      {checked.length > 0 && (
+        <div style={{ marginTop: 18, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+          <button onClick={() => setShowChecked((v) => !v)} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0 }}>
+            {showChecked ? "▾" : "▸"} Checked ({checked.length})
+          </button>
+          {showChecked && checked.map(({ athlete: a, checkedFlags }) => (
+            <div key={a.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "8px 2px", borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 13, color: C.mutedUp, fontWeight: 700 }}>{a.name}</span>
+              <span style={{ fontSize: 12, color: C.muted, flex: 1, minWidth: 140 }}>
+                {checkedFlags.map((d) => d.flag.label).join(" · ")}
+                {checkedFlags[0]?.check?.checked_at && !isNaN(new Date(checkedFlags[0].check.checked_at)) &&
+                  ` — checked ${new Date(checkedFlags[0].check.checked_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+              </span>
+              {onUncheck && checkedFlags.map((d) => (
+                <button key={d.flag.kind} onClick={() => uncheck(a.id, d.flag.kind)} disabled={busyKey === `${a.id}|${d.flag.kind}`}
+                  style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 7, color: C.muted, fontSize: 11, padding: "3px 9px", cursor: "pointer", fontFamily: "inherit" }}>
+                  Bring back
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

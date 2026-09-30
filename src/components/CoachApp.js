@@ -17,7 +17,7 @@ import { TestScoreModal } from "./TestScoreModal";
 import { Avatar, Btn, StatCard } from "./common";
 
 // ─── COACH APP ────────────────────────────────────────────────────────────────
-function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onImportRoster, onSaveTestScore, onBulkTag, onLogout, noteReviews = [], reviewsReady = false, onMarkNoteAddressed }) {
+function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onImportRoster, onSaveTestScore, onBulkTag, onLogout, noteReviews = [], reviewsReady = false, onMarkNoteAddressed, attentionChecks = [], checksReady = false, onCheckAttention, onUncheckAttention }) {
   const [tab, setTab] = useState("workouts");
   const [showBuilder, setShowBuilder] = useState(false);
   const [planSource, setPlanSource] = useState(null);   // { source, initialWeeks }
@@ -354,7 +354,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
           <NotesTab feed={noteFeed} athletes={athletes} reviewsReady={reviewsReady} onMarkAddressed={onMarkNoteAddressed} />
         )}
         {tab === "attention" && (
-          <AttentionTab noteFlags={noteFlags} reviewsReady={reviewsReady} onMarkAddressed={onMarkNoteAddressed} athletes={activeAthletes} workouts={workouts} logs={logs} />
+          <AttentionTab checks={attentionChecks} checksReady={checksReady} onCheck={onCheckAttention} onUncheck={onUncheckAttention} noteFlags={noteFlags} reviewsReady={reviewsReady} onMarkAddressed={onMarkNoteAddressed} athletes={activeAthletes} workouts={workouts} logs={logs} />
         )}
 
         {tab === "attendance" && (

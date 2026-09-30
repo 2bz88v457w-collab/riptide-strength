@@ -37,6 +37,8 @@ export default function App() {
   const [assessments, setAssessments] = useState([]);
   const [noteReviews, setNoteReviews] = useState([]);
   const [reviewsReady, setReviewsReady] = useState(false);
+  const [attentionChecks, setAttentionChecks] = useState([]);
+  const [checksReady, setChecksReady] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -91,6 +93,12 @@ export default function App() {
       if (error) { console.warn("Note reviews unavailable:", error.message); setReviewsReady(false); return; }
       setNoteReviews(data || []);
       setReviewsReady(true);
+    });
+    supabase.from("attention_checks").select("*").then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) { console.warn("Attention checks unavailable:", error.message); setChecksReady(false); return; }
+      setAttentionChecks(data || []);
+      setChecksReady(true);
     });
     return () => { cancelled = true; };
   }, [userId, isCoach]);
@@ -263,6 +271,23 @@ export default function App() {
     return true;
   }, []);
 
+  // Checking a flag off records what it looked like, so it reappears only when
+  // the situation moves on (another missed session, another RPE).
+  const checkAttention = useCallback(async (athleteId, kind, state) => {
+    const row = { athlete_id: athleteId, kind, state, checked_at: new Date().toISOString() };
+    const { error } = await supabase.from("attention_checks").upsert(row, { onConflict: "athlete_id,kind" });
+    if (error) { reportDbError("Checking off a flag", error); return false; }
+    setAttentionChecks((cs) => [...cs.filter((c) => !(c.athlete_id === athleteId && c.kind === kind)), row]);
+    return true;
+  }, []);
+
+  const uncheckAttention = useCallback(async (athleteId, kind) => {
+    const { error } = await supabase.from("attention_checks").delete().eq("athlete_id", athleteId).eq("kind", kind);
+    if (error) { reportDbError("Bringing a flag back", error); return false; }
+    setAttentionChecks((cs) => cs.filter((c) => !(c.athlete_id === athleteId && c.kind === kind)));
+    return true;
+  }, []);
+
   const handleLogout = useCallback(() => { signOut(); }, []);
 
   if (authSession === undefined) return <LoadingScreen />;
@@ -270,7 +295,7 @@ export default function App() {
   if (loading) return <LoadingScreen />;
 
   const role = sessionRole(authSession);
-  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onImportRoster={importRoster} onSaveTestScore={saveTestScore} noteReviews={noteReviews} reviewsReady={reviewsReady} onMarkNoteAddressed={markNoteAddressed} onBulkTag={bulkTagAthletes} onLogout={handleLogout} />;
+  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onImportRoster={importRoster} onSaveTestScore={saveTestScore} noteReviews={noteReviews} reviewsReady={reviewsReady} onMarkNoteAddressed={markNoteAddressed} attentionChecks={attentionChecks} checksReady={checksReady} onCheckAttention={checkAttention} onUncheckAttention={uncheckAttention} onBulkTag={bulkTagAthletes} onLogout={handleLogout} />;
 
   const me = athletes.find((a) => a.user_id === authSession.user.id);
   if (!me) return (

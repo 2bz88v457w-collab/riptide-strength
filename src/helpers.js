@@ -354,6 +354,8 @@ function computeAttention(athletes, workouts, logs, { today = new Date(), cfg = 
         label: `No log in ${daysSinceLog === null ? "any" : daysSinceLog} day${daysSinceLog === 1 ? "" : "s"}`,
         detail: `${missed.length} assigned session${missed.length === 1 ? "" : "s"} not logged`,
         severity: 3 + Math.min(missed.length, 3),
+        // Changes the moment they miss another session, which un-checks the flag.
+        state: `missed:${missed.length}:${missed.map((w) => w.date).sort().pop()}`,
       });
     }
     if (enoughRpe && priorAvg !== null && recentAvg - priorAvg >= cfg.rampDelta && recentAvg >= cfg.rampFloor) {
@@ -362,6 +364,7 @@ function computeAttention(athletes, workouts, logs, { today = new Date(), cfg = 
         label: "RPE trending up",
         detail: `last ${recent.length} averaged ${recentAvg.toFixed(1)}, up from ${priorAvg.toFixed(1)} — possible overreach`,
         severity: 5,
+        state: `rpe:${rpes.length}`,     // a new RPE session re-opens the flag
       });
     }
     if (enoughRpe && recent.length === cfg.window && recent.every((n) => n <= cfg.flatCeiling)) {
@@ -370,6 +373,7 @@ function computeAttention(athletes, workouts, logs, { today = new Date(), cfg = 
         label: "RPE flat and low",
         detail: `last ${recent.length} sessions all at or below ${cfg.flatCeiling} — may be under-challenged`,
         severity: 2,
+        state: `rpe:${rpes.length}`,
       });
     }
 
@@ -380,6 +384,33 @@ function computeAttention(athletes, workouts, logs, { today = new Date(), cfg = 
     };
   }).filter((r) => r.flags.length > 0)
     .sort((x, y) => y.severity - x.severity || x.athlete.name.localeCompare(y.athlete.name));
+}
+
+// Split attention rows by what the coach has already checked off. A check
+// covers one athlete and one flag kind, and only while the flag looks the same
+// as it did when checked — so nothing is lost, it just isn't shown twice.
+function applyAttentionChecks(rows, checks = []) {
+  const byKey = new Map(checks.map((c) => [`${c.athlete_id}|${c.kind}`, c]));
+  const open = [];
+  const checked = [];
+  rows.forEach((r) => {
+    const live = [];
+    const done = [];
+    r.flags.forEach((f) => {
+      const c = byKey.get(`${r.athlete.id}|${f.kind}`);
+      if (c && c.state === f.state) done.push({ flag: f, check: c });
+      else live.push(f);
+    });
+    if (live.length) open.push({ ...r, flags: live, checkedFlags: done, severity: live.reduce((m, f) => Math.max(m, f.severity), 0) });
+    else if (done.length) checked.push({ ...r, flags: [], checkedFlags: done });
+  });
+  return {
+    open: open.sort((x, y) => y.severity - x.severity || x.athlete.name.localeCompare(y.athlete.name)),
+    checked: checked.sort((x, y) => {
+      const at = (r) => r.checkedFlags.reduce((m, d) => Math.max(m, new Date(d.check.checked_at).getTime() || 0), 0);
+      return at(y) - at(x) || x.athlete.name.localeCompare(y.athlete.name);
+    }),
+  };
 }
 
 // ─── ATTENDANCE ───────────────────────────────────────────────────────────────
@@ -423,4 +454,4 @@ function attendanceByAthlete(sessions, athletes) {
   }).filter((r) => r.assigned > 0);
 }
 
-export { ATTENTION, addDays, buildPlannedWorkouts, titleTemplateFrom, assessmentCellKeys, attendanceByAthlete, computeAttention, computeMovementProgress, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };
+export { ATTENTION, addDays, applyAttentionChecks, buildPlannedWorkouts, titleTemplateFrom, assessmentCellKeys, attendanceByAthlete, computeAttention, computeMovementProgress, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };

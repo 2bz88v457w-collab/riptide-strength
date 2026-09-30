@@ -1,4 +1,4 @@
-import { computeAttention, sessionRpe } from './helpers';
+import { applyAttentionChecks, computeAttention, sessionRpe } from './helpers';
 
 const TODAY = new Date('2026-09-30T12:00:00');
 const day = (n) => new Date(TODAY.getTime() - n * 86400000).toISOString().slice(0, 10); // n days ago
@@ -85,4 +85,64 @@ describe('RPE trend flags', () => {
 test('athletes needing nothing are left out entirely', () => {
   const workouts = [{ id: 'w1', date: day(2), assignees: ['a1'] }];
   expect(run(workouts, [{ athleteId: 'a1', workoutId: 'w1' }])).toEqual([]);
+});
+
+describe('checking a flag off', () => {
+  const workouts = [
+    { id: 'w1', date: day(3), assignees: ['a1'] },
+    { id: 'w2', date: day(5), assignees: ['a1'] },
+  ];
+  const rows = run(workouts, []);
+  const quiet = rows[0].flags.find((f) => f.kind === 'quiet');
+  const check = (state, at = '2026-09-29T10:00:00Z') => [{ athlete_id: 'a1', kind: 'quiet', state, checked_at: at }];
+
+  test('a flag reports the state it was in, so a check can expire', () => {
+    expect(quiet.state).toBe(`missed:2:${day(3)}`);
+  });
+
+  test('checking it moves the athlete out of the open list', () => {
+    const { open, checked } = applyAttentionChecks(rows, check(quiet.state));
+    expect(open).toEqual([]);
+    expect(checked.map((r) => r.athlete.name)).toEqual(['Ann']);
+    expect(checked[0].checkedFlags[0].flag.kind).toBe('quiet');
+  });
+
+  test('missing another session brings the flag straight back', () => {
+    const later = run([...workouts, { id: 'w3', date: day(1), assignees: ['a1'] }], []);
+    const { open, checked } = applyAttentionChecks(later, check(quiet.state));  // checked at 2 missed, now 3
+    expect(open.map((r) => r.athlete.name)).toEqual(['Ann']);
+    expect(checked).toEqual([]);
+  });
+
+  test('an unrelated flag on the same athlete stays open', () => {
+    // Ramping RPE a fortnight ago, then silence: both flags fire at once.
+    const rpes = [5, 5, 6, 8, 8, 9];
+    const wkts = rpes.map((_, i) => ({ id: 'r' + i, date: day(20 - i), assignees: ['a1'] }));
+    const logs = rpes.map((rpe, i) => ({ athleteId: 'a1', workoutId: 'r' + i, rpe }));
+    const withBoth = run([...wkts, { id: 'miss', date: day(3), assignees: ['a1'] }], logs);
+    expect(withBoth[0].flags.map((f) => f.kind).sort()).toEqual(['quiet', 'ramp']);
+
+    const rampState = withBoth[0].flags.find((f) => f.kind === 'ramp').state;
+    const { open } = applyAttentionChecks(withBoth, [{ athlete_id: 'a1', kind: 'ramp', state: rampState, checked_at: 'x' }]);
+    expect(open[0].flags.map((f) => f.kind)).toEqual(['quiet']);        // still needs chasing
+    expect(open[0].checkedFlags.map((d) => d.flag.kind)).toEqual(['ramp']);
+  });
+
+  test('a new RPE session re-opens an RPE flag', () => {
+    const build = (rpes) => {
+      const wkts = rpes.map((_, i) => ({ id: 'w' + i, date: day(rpes.length - i), assignees: ['a1'] }));
+      return run(wkts, rpes.map((rpe, i) => ({ athleteId: 'a1', workoutId: 'w' + i, rpe })), [ATHLETES[0]]);
+    };
+    const before = build([5, 5, 6, 8, 8, 9]);
+    const state = before[0].flags.find((f) => f.kind === 'ramp').state;
+    const checks = [{ athlete_id: 'a1', kind: 'ramp', state, checked_at: 'x' }];
+    expect(applyAttentionChecks(before, checks).open).toEqual([]);
+    const after = build([5, 5, 6, 8, 8, 9, 9]);
+    expect(applyAttentionChecks(after, checks).open).toHaveLength(1);
+  });
+
+  test('checks for other athletes do not hide anyone', () => {
+    const { open } = applyAttentionChecks(rows, [{ athlete_id: 'a2', kind: 'quiet', state: quiet.state, checked_at: 'x' }]);
+    expect(open.map((r) => r.athlete.name)).toEqual(['Ann']);
+  });
 });

@@ -84,3 +84,7 @@ as auth passwords). From then on the Edit Athlete screen shows a blank
   addressed" record for pain/injury flags in athlete notes. Coach-only RLS.
   Until it's run, the Notes tab and alerts work; only "Mark addressed" is
   disabled.
+- `08-attention-checks.sql` (safe anytime, safe to re-run) — the coach's
+  "Checked" marks on Needs attention flags. Coach-only RLS. A check hides one
+  flag until its state changes (another missed session, another RPE session).
+  Until it's run, Needs attention works; only "Checked" is disabled.
