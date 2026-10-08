@@ -290,9 +290,13 @@ function computeMovementProgress(athletes, workouts, logs, { season, from, to } 
         first, best, latest: points[points.length - 1],
         sessions: points.length, delta,
         pct: first.value ? (delta / first.value) * 100 : null,
+        // Every session, oldest first — one cell per date in the progress table.
+        points,
+        byDate: Object.fromEntries(points.map((p) => [p.date, p.value])),
       };
     }).filter(Boolean);
-    return { key, movement: displayName.get(key), metric, rows: rows.sort((a, b) => b.delta - a.delta || a.athlete.name.localeCompare(b.athlete.name)) };
+    const dates = [...new Set(rows.flatMap((r) => r.points.map((p) => p.date)))].sort();
+    return { key, movement: displayName.get(key), metric, dates, rows: rows.sort((a, b) => b.delta - a.delta || a.athlete.name.localeCompare(b.athlete.name)) };
   }).filter((m) => m.rows.length > 0)
     .sort((a, b) => b.rows.length - a.rows.length || a.movement.localeCompare(b.movement));
 }

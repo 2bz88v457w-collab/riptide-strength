@@ -9,16 +9,17 @@ import { Btn } from "./common";
 // multi: checkboxes + "Add N moves" footer via onAdd(names).
 // single (multi=false): tapping a move calls onPick(name) immediately (used by Swap).
 // Typing something not in the library offers an "add as custom move" row.
-function MovePicker({ title, subtitle, multi, onAdd, onPick, onClose }) {
+function MovePicker({ title, subtitle, multi, onAdd, onPick, onClose, names, allowCustom = true }) {
   const isNarrow = useIsNarrow();
   const [filter, setFilter] = useState("ALL");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState([]);
   const q = search.trim().toLowerCase();
-  const list = EXERCISE_BANK
+  const bank = names || EXERCISE_BANK;
+  const list = bank
     .filter((n) => (filter === "ALL" || getMoveTypes(n).includes(filter)) && (!q || n.toLowerCase().includes(q)))
     .sort((a, b) => a.localeCompare(b));
-  const customName = q && !EXERCISE_BANK.some((n) => n.toLowerCase() === q) ? search.trim() : null;
+  const customName = allowCustom && q && !bank.some((n) => n.toLowerCase() === q) ? search.trim() : null;
   const pick = (name) => {
     if (!multi) { onPick(name); return; }
     setSelected((s) => s.includes(name) ? s.filter((x) => x !== name) : [...s, name]);
