@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { C, blockColor } from "../constants";
 import { fmtDate, getSupersetLabels, getLastSets, parseLoadNum, getProgressionFill, getBestLoad, parsePrescribedRpe } from "../helpers";
+import { lastSessionNotes } from "../notes";
 import { Btn } from "./common";
 
 // ─── LOG MODAL ────────────────────────────────────────────────────────────────
@@ -34,6 +35,17 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
   const [blockNotes, setBlockNotes] = useState(() => { const init = {}; workout.blocks.forEach((b) => { init[b.id] = existingLog?.blockNotes?.[b.id] || ""; }); return init; });
   const [rpe, setRpe] = useState(existingLog?.rpe || "");
   const [saving, setSaving] = useState(false);
+  // What the athlete wrote last time, and whether they want to see it. The
+  // choice is remembered on their own device.
+  const [lastNotes] = useState(() => lastSessionNotes(athleteId, allLogs, allWorkouts, workout.id));
+  const [showLast, setShowLast] = useState(() => {
+    try { return localStorage.getItem("rs.showLastNotes") === "1"; } catch { return false; }
+  });
+  const toggleLast = () => setShowLast((v) => {
+    const next = !v;
+    try { localStorage.setItem("rs.showLastNotes", next ? "1" : "0"); } catch { /* private browsing */ }
+    return next;
+  });
   const updSet = (exId, idx, k, v, isBW, prescribedReps) => setSets((s) => ({
     ...s,
     [exId]: s[exId].map((r, i) => {
@@ -134,8 +146,39 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
       <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 640, padding: 26, boxShadow: `0 0 60px ${C.tealGlow}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div><h2 style={{ margin: 0, color: C.white, fontSize: 18, fontWeight: 800 }}>{workout.title}</h2><p style={{ margin: "3px 0 0", color: C.muted, fontSize: 12 }}>{fmtDate(workout.date)}</p></div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>×</button>
+          </div>
         </div>
+        {lastNotes && (
+          <div style={{ marginBottom: 16, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10 }}>
+            <button
+              onClick={toggleLast}
+              aria-expanded={showLast}
+              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: "none", border: "none", color: C.mutedUp, fontSize: 12.5, fontWeight: 700, padding: "9px 12px", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+            >
+              <span style={{ color: C.muted }}>{showLast ? "▾" : "▸"}</span>
+              Your notes from {fmtDate(lastNotes.date)}
+              {!showLast && <span style={{ color: C.muted, fontWeight: 400 }}>— tap to read</span>}
+            </button>
+            {showLast && (
+              <div style={{ padding: "0 12px 11px" }}>
+                {lastNotes.sessionNote && (
+                  <p data-testid="last-session-note" style={{ margin: 0, fontSize: 12.5, color: C.muted, fontStyle: "italic", lineHeight: 1.45, whiteSpace: "pre-wrap" }}>
+                    {lastNotes.sessionNote}
+                    {lastNotes.rpe && <span style={{ color: C.gold, fontStyle: "normal" }}> · RPE {lastNotes.rpe}</span>}
+                  </p>
+                )}
+                {Object.entries(lastNotes.byBlockName).map(([name, text]) => (
+                  <p key={name} data-testid="last-block-note" style={{ margin: "7px 0 0", fontSize: 12.5, color: C.muted, fontStyle: "italic", lineHeight: 1.45, whiteSpace: "pre-wrap" }}>
+                    <span style={{ fontStyle: "normal", fontWeight: 700, color: C.mutedUp }}>{name}: </span>{text}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {preview && (
           <div role="note" style={{ margin: "-6px 0 18px", padding: "9px 12px", background: `${C.gold}14`, border: `1px solid ${C.gold}55`, borderRadius: 10, fontSize: 12.5, color: C.white, lineHeight: 1.45 }}>
             <strong style={{ color: C.gold }}>Athlete preview.</strong> This is the screen swimmers log on. Type into it freely — nothing here is saved.

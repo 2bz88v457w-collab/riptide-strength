@@ -88,9 +88,37 @@ function buildNoteFeed(logs, workouts, athletes, reviews = [], { now = Date.now(
     .sort((a, b) => b.loggedAt - a.loggedAt);
 }
 
+// The athlete's own notes from their last session that had any — shown back to
+// them while they log, so "shoulder felt off last week" is in front of them
+// instead of only in the coach's feed. Block notes are matched by block NAME,
+// not id: every week's workout is a fresh row with fresh block ids, but the
+// names ("Block 2", "Cool Down") carry across.
+function lastSessionNotes(athleteId, logs, workouts, currentWorkoutId) {
+  if (!athleteId) return null;
+  const wktById = new Map(workouts.map((w) => [w.id, w]));
+  const mine = logs
+    .filter((l) => l.athleteId === athleteId && l.workoutId !== currentWorkoutId)
+    .map((l) => ({ log: l, workout: wktById.get(l.workoutId) }))
+    .filter((x) => x.workout)
+    .sort((a, b) => (b.workout.date || "").localeCompare(a.workout.date || "") || (Number(b.log.loggedAt) || 0) - (Number(a.log.loggedAt) || 0));
+
+  for (const { log, workout } of mine) {
+    const byBlockName = {};
+    Object.entries(log.blockNotes || {}).forEach(([blockId, text]) => {
+      const name = workout.blocks?.find((b) => b.id === blockId)?.name;
+      if (name && text?.trim()) byBlockName[name] = text.trim();
+    });
+    const sessionNote = log.note?.trim() || "";
+    if (sessionNote || Object.keys(byBlockName).length) {
+      return { date: workout.date, title: workout.title, sessionNote, byBlockName, rpe: log.rpe || "" };
+    }
+  }
+  return null;
+}
+
 // Live alerts only, pain before soreness, newest first within each.
 function activeNoteFlags(feed) {
   return feed.filter((c) => c.active).sort((a, b) => (a.level === b.level ? b.loggedAt - a.loggedAt : a.level === "pain" ? -1 : 1));
 }
 
-export { NOTE_FLAGS_SINCE, SORE_DAYS, activeNoteFlags, buildNoteFeed, highlightParts, scanNote };
+export { NOTE_FLAGS_SINCE, SORE_DAYS, activeNoteFlags, buildNoteFeed, highlightParts, lastSessionNotes, scanNote };
