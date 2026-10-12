@@ -301,6 +301,48 @@ function computeMovementProgress(athletes, workouts, logs, { season, from, to } 
     .sort((a, b) => b.rows.length - a.rows.length || a.movement.localeCompare(b.movement));
 }
 
+// Attendance as a grid: athletes down the side, session dates across the top.
+// Three states per cell — logged, assigned but not logged, or not assigned
+// that day (a blank, not a miss). Athletes with nothing assigned are left out,
+// same as the per-athlete rollup.
+function attendanceGrid(sessions, athletes) {
+  const dates = [...sessions].map((s) => s.date).sort();
+  const rows = athletes.map((a) => {
+    const cells = {};
+    let assigned = 0, attended = 0;
+    sessions.forEach((s) => {
+      if (!s.assigned.has(a.id)) { cells[s.date] = null; return; }
+      assigned++;
+      const here = s.present.has(a.id);
+      if (here) attended++;
+      cells[s.date] = here ? "present" : "absent";
+    });
+    return { athlete: a, cells, assigned, attended, rate: assigned ? attended / assigned : null };
+  }).filter((r) => r.assigned > 0);
+  return { dates, rows };
+}
+
+// The same grid as text for a spreadsheet. Separator is a comma for a .csv
+// file, or a tab for pasting straight into Excel or Sheets.
+function attendanceCsv({ dates, rows }, { sep = "," } = {}) {
+  const mark = { present: "\u2713", absent: "X" };
+  const esc = (v) => {
+    const t = String(v ?? "");
+    return t.includes(sep) || t.includes('"') || t.includes("\n") ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  const line = (cells) => cells.map(esc).join(sep);
+  const out = [line(["Athlete", "Group", ...dates, "Attended", "Assigned", "Rate"])];
+  rows.forEach((r) => out.push(line([
+    r.athlete.name,
+    r.athlete.event || "",
+    ...dates.map((d) => mark[r.cells[d]] || ""),
+    r.attended,
+    r.assigned,
+    r.rate === null ? "" : `${Math.round(r.rate * 100)}%`,
+  ])));
+  return out.join("\n");
+}
+
 // ─── NEEDS ATTENTION ──────────────────────────────────────────────────────────
 // Thresholds live here so they are easy to retune once a season of data exists.
 const ATTENTION = {
@@ -458,4 +500,4 @@ function attendanceByAthlete(sessions, athletes) {
   }).filter((r) => r.assigned > 0);
 }
 
-export { ATTENTION, addDays, applyAttentionChecks, buildPlannedWorkouts, titleTemplateFrom, assessmentCellKeys, attendanceByAthlete, computeAttention, computeMovementProgress, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };
+export { ATTENTION, addDays, applyAttentionChecks, attendanceCsv, attendanceGrid, buildPlannedWorkouts, titleTemplateFrom, assessmentCellKeys, attendanceByAthlete, computeAttention, computeMovementProgress, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };

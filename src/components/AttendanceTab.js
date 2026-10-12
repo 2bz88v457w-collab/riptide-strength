@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { C, STROKES, DISTANCES } from "../constants";
-import { fmtDate, computeSessions, attendanceByAthlete } from "../helpers";
+import { fmtDate, computeSessions, attendanceByAthlete, attendanceCsv, attendanceGrid } from "../helpers";
+import { useIsNarrow } from "../hooks";
 import { Avatar } from "./common";
 
 // Attendance derived from logs: present = logged a workout assigned that day.
 // No separate roll call, so it works retroactively across all history.
 function AttendanceTab({ athletes, workouts, logs }) {
+  const narrow = useIsNarrow();
+  const [copied, setCopied] = useState("");
   const [seasonFilter, setSeasonFilter] = useState("All");
   const [groupFilter, setGroupFilter] = useState("All");
   const [view, setView] = useState("athlete");
@@ -42,6 +45,34 @@ function AttendanceTab({ athletes, workouts, logs }) {
   const overall = totalAssigned ? totalPresent / totalAssigned : null;
   const rateColor = (r) => r === null ? C.muted : r >= 0.8 ? C.teal : r >= 0.5 ? C.gold : C.red;
   const pct = (r) => r === null ? "—" : `${Math.round(r * 100)}%`;
+
+  // Oldest session on the left, so a row reads left-to-right through the season.
+  const grid = attendanceGrid([...scoped].reverse(), roster);
+
+  const stamp = () => new Date().toISOString().slice(0, 10);
+  const download = () => {
+    const csv = attendanceCsv(grid);
+    // The BOM is what makes Excel read the ✓ as a tick rather than mojibake.
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `riptide-attendance-${stamp()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+  const copy = async () => {
+    // Tab-separated pastes straight into a spreadsheet cell grid.
+    try {
+      await navigator.clipboard.writeText(attendanceCsv(grid, { sep: "\t" }));
+      setCopied("Copied — paste into a spreadsheet");
+    } catch {
+      setCopied("Couldn't copy — use Download CSV instead");
+    }
+    setTimeout(() => setCopied(""), 4000);
+  };
 
   const pill = (label, active, onClick, key) => (
     <button key={key} onClick={onClick} style={{ border: `1px solid ${active ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: active ? C.tealGlow : "transparent", color: active ? C.teal : C.mutedUp }}>{label}</button>
@@ -99,10 +130,57 @@ function AttendanceTab({ athletes, workouts, logs }) {
       </div>
 
       <div style={{ display: "flex", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden", width: "fit-content", marginBottom: 14 }}>
-        {[["athlete", "By athlete"], ["session", "By session"]].map(([v, label]) => (
+        {[["athlete", "By athlete"], ["session", "By session"], ["grid", "Grid"]].map(([v, label]) => (
           <button key={v} onClick={() => setView(v)} style={{ border: "none", padding: "7px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: view === v ? C.teal : "transparent", color: view === v ? C.bg : C.muted }}>{label}</button>
         ))}
       </div>
+
+      {view === "grid" && scoped.length > 0 && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+          <button onClick={download} style={{ background: C.teal, border: "none", borderRadius: 8, color: C.bg, fontSize: 12, fontWeight: 800, padding: "7px 14px", cursor: "pointer", fontFamily: "inherit" }}>Download CSV</button>
+          <button onClick={copy} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, fontSize: 12, fontWeight: 700, padding: "7px 14px", cursor: "pointer", fontFamily: "inherit" }}>Copy for spreadsheet</button>
+          <span style={{ fontSize: 11.5, color: copied.startsWith("Couldn't") ? C.red : C.teal }}>{copied}</span>
+          <span style={{ fontSize: 11.5, color: C.muted }}>{grid.rows.length} athletes × {grid.dates.length} session{grid.dates.length === 1 ? "" : "s"}, as filtered above</span>
+        </div>
+      )}
+
+      {view === "grid" && scoped.length > 0 && (
+        <div style={{ overflowX: "auto", border: `1px solid ${C.border}`, borderRadius: 10, background: C.surface }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th style={{ position: "sticky", left: 0, background: C.surface, textAlign: "left", fontSize: 10, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: ".04em", padding: "6px 10px 6px 2px", borderRight: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>Athlete</th>
+                {grid.dates.map((d) => (
+                  <th key={d} style={{ fontSize: 10, fontWeight: 800, color: C.muted, padding: "6px 7px", whiteSpace: "nowrap" }}>
+                    {new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric" })}
+                  </th>
+                ))}
+                <th style={{ fontSize: 10, fontWeight: 800, color: C.muted, textTransform: "uppercase", padding: "6px 10px", textAlign: "right", borderLeft: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>Logged</th>
+                <th style={{ fontSize: 10, fontWeight: 800, color: C.muted, textTransform: "uppercase", padding: "6px 10px", textAlign: "right" }}>Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {grid.rows.map((r) => (
+                <tr key={r.athlete.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                  <td style={{ position: "sticky", left: 0, background: C.surface, color: C.white, fontWeight: 600, padding: "5px 10px 5px 2px", borderRight: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>{r.athlete.name}</td>
+                  {grid.dates.map((d) => (
+                    <td key={d} title={r.cells[d] === "absent" ? `Missed ${fmtDate(d)}` : r.cells[d] === "present" ? `Logged ${fmtDate(d)}` : `Not assigned ${fmtDate(d)}`}
+                      style={{ textAlign: "center", padding: "5px 7px", color: r.cells[d] === "present" ? C.teal : r.cells[d] === "absent" ? C.red : C.border, fontWeight: 700 }}>
+                      {r.cells[d] === "present" ? "✓" : r.cells[d] === "absent" ? "X" : "·"}
+                    </td>
+                  ))}
+                  <td style={{ textAlign: "right", padding: "5px 10px", color: C.mutedUp, borderLeft: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>{r.attended}/{r.assigned}</td>
+                  <td style={{ textAlign: "right", padding: "5px 10px", fontWeight: 800, color: rateColor(r.rate) }}>{pct(r.rate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {view === "grid" && narrow && scoped.length > 0 && (
+        <p style={{ margin: "8px 0 0", fontSize: 11.5, color: C.muted }}>Scroll sideways for later dates — or download the CSV and open it on a computer.</p>
+      )}
 
       {scoped.length === 0 && (
         <div style={{ textAlign: "center", padding: "48px 0", color: C.muted }}>
