@@ -84,6 +84,9 @@ function parseLoadNum(v) {
 
 // Round a computed weight to the nearest plate increment.
 function roundLoad(n, inc = 2.5) { return Math.round(n / inc) * inc; }
+// Round DOWN instead — for benchmarks, where guessing high sets everything
+// programmed off it too heavy.
+function floorLoad(n, inc = 5) { return Math.floor(n / inc) * inc; }
 
 // ─── WEIGHT PROGRESSION ("BUMPS") ─────────────────────────────────────────────
 // Look up a pending coach bump for a movement and compute the pre-fill target
@@ -149,6 +152,81 @@ function computePRs(athleteId, allLogs, allWorkouts) {
 function parsePrescribedRpe(load) {
   const m = /rpe\s*:?\s*(10|\d(?:\.\d)?)/i.exec(load || "");
   return m ? m[1] : null;
+}
+
+// ─── 3RM BENCHMARKS ───────────────────────────────────────────────────────────
+// Epley: a set of r reps at weight w implies a 1RM of w × (1 + r/30). Past
+// about 10 reps that drifts badly, so long sets don't count. The 3RM is that
+// 1RM scaled back by the same formula, which makes a true 3-rep set come out
+// as itself. Floored to the nearest 5: an estimate that guesses high would
+// make every percentage programmed off it too heavy.
+const MAX_EST_REPS = 10;
+
+function estimate3RM(load, reps) {
+  const w = parseLoadNum(load);
+  const r = parseLoadNum(reps);
+  if (w === null || w <= 0 || r === null || r < 1 || r > MAX_EST_REPS) return null;
+  return floorLoad((w * (1 + r / 30)) / (1 + 3 / 30));
+}
+
+// Best estimated 3RM each athlete has shown for one movement, with the set it
+// came from so the coach can see what the estimate is based on.
+function estimatedBenchmarks(movementName, workouts, logs, { season, from, to } = {}) {
+  const name = (movementName || "").toLowerCase().trim();
+  const best = new Map();
+  if (!name) return best;
+  let wkts = season && season !== "All" ? workouts.filter((w) => w.season === season) : workouts;
+  if (from) wkts = wkts.filter((w) => w.date >= from);
+  if (to) wkts = wkts.filter((w) => w.date <= to);
+
+  const exOf = new Map();
+  wkts.forEach((w) => (w.blocks || []).forEach((b) => (b.exercises || []).forEach((e) => {
+    if ((e.name || "").toLowerCase().trim() === name) exOf.set(e.id, w);
+  })));
+
+  logs.forEach((l) => {
+    Object.entries(l.sets || {}).forEach(([exId, sets]) => {
+      const w = exOf.get(exId);
+      if (!w) return;
+      (sets || []).forEach((set) => {
+        const value = estimate3RM(set.load, set.reps);
+        if (value === null) return;
+        const prev = best.get(l.athleteId);
+        if (!prev || value > prev.value) {
+          best.set(l.athleteId, { value, date: w.date, reps: parseLoadNum(set.reps), load: parseLoadNum(set.load) });
+        }
+      });
+    });
+  });
+  return best;
+}
+
+// The number to program against: the coach's correction if there is one,
+// otherwise the estimate from their logs.
+function athlete3RM(athleteId, movementName, overrides = [], workouts = [], logs = [], opts = {}) {
+  const key = (movementName || "").toLowerCase().trim();
+  if (!athleteId || !key) return null;
+  const ov = overrides.find((o) => o.athlete_id === athleteId && (o.movement || "").toLowerCase().trim() === key);
+  const ovValue = ov ? parseLoadNum(ov.value) : null;
+  if (ovValue !== null && ovValue > 0) return { value: ovValue, source: "coach" };
+  const est = estimatedBenchmarks(movementName, workouts, logs, opts).get(athleteId);
+  return est ? { value: est.value, source: "estimated", from: est } : null;
+}
+
+// Coaches write intensity into the load field. "RPE 8" gets an RPE box;
+// "75% 3RM" gets the athlete's own weight worked out for them.
+function parsePrescribedPct(load) {
+  const t = String(load || "");
+  const m = /(\d{1,3}(?:\.\d)?)\s*%\s*(?:of\s*)?(?:a\s*)?3\s*-?\s*rm/i.exec(t) || /3\s*-?\s*rm\s*(?:at\s*)?(\d{1,3}(?:\.\d)?)\s*%/i.exec(t);
+  if (!m) return null;
+  const pct = parseFloat(m[1]);
+  return pct > 0 && pct <= 150 ? pct : null;
+}
+
+// What to pre-fill for this athlete: their 3RM scaled to the prescribed share.
+function pctTargetLoad(pct, bench) {
+  if (!pct || !bench) return null;
+  return roundLoad((bench.value * pct) / 100);
 }
 
 // ─── MULTI-WEEK PLANNING ──────────────────────────────────────────────────────
@@ -500,4 +578,4 @@ function attendanceByAthlete(sessions, athletes) {
   }).filter((r) => r.assigned > 0);
 }
 
-export { ATTENTION, addDays, applyAttentionChecks, attendanceCsv, attendanceGrid, buildPlannedWorkouts, titleTemplateFrom, assessmentCellKeys, attendanceByAthlete, computeAttention, computeMovementProgress, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };
+export { ATTENTION, MAX_EST_REPS, addDays, floorLoad, applyAttentionChecks, athlete3RM, attendanceCsv, attendanceGrid, estimate3RM, estimatedBenchmarks, parsePrescribedPct, pctTargetLoad, buildPlannedWorkouts, titleTemplateFrom, assessmentCellKeys, attendanceByAthlete, computeAttention, computeMovementProgress, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };

@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { C, blockColor } from "../constants";
-import { fmtDate, getSupersetLabels, getLastSets, parseLoadNum, getProgressionFill, getBestLoad, parsePrescribedRpe } from "../helpers";
+import { fmtDate, getSupersetLabels, getLastSets, parseLoadNum, getProgressionFill, getBestLoad, parsePrescribedRpe, parsePrescribedPct, athlete3RM, pctTargetLoad } from "../helpers";
 import { lastSessionNotes } from "../notes";
 import { Btn } from "./common";
 
 // ─── LOG MODAL ────────────────────────────────────────────────────────────────
 // preview: the coach's look at a workout from the builder — same screen, not
 // tied to a swimmer, and nothing can be saved from it.
-function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progressions = [], onConsumeProgressions, onSave, onClose, preview = false }) {
+function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progressions = [], benchmarks = [], onConsumeProgressions, onSave, onClose, preview = false }) {
   // Coach bumps that fire in this session, frozen at open: { [exId]: { rule, base, target } }.
   // Only fresh logs get pre-filled — re-opening a saved log never re-fills or re-consumes.
   const [prefills] = useState(() => {
@@ -20,6 +20,18 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
     }));
     return map;
   });
+  // "75% 3RM" resolves to this athlete's own weight, from their benchmark.
+  // Frozen at open like the bumps above, so it can't shift mid-session.
+  const [pctFills] = useState(() => {
+    const map = {};
+    workout.blocks.forEach((b) => b.exercises.forEach((ex) => {
+      const pct = parsePrescribedPct(ex.load);
+      if (!pct) return;
+      const bench = athlete3RM(athleteId, ex.name, benchmarks, allWorkouts, allLogs);
+      map[ex.id] = { pct, bench, target: pctTargetLoad(pct, bench) };
+    }));
+    return map;
+  });
   const [sets, setSets] = useState(() => {
     const init = {};
     workout.blocks.forEach((b) => b.exercises.forEach((ex) => {
@@ -27,7 +39,13 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
       // Pre-filled loads bypass updSet on purpose: the set stays not-done until the athlete confirms.
       // RPE prescriptions ("RPE 8") pre-fill their own box so the weight box stays free.
       const presRpe = parsePrescribedRpe(ex.load) || "";
-      init[ex.id] = existingLog?.sets?.[ex.id] || Array.from({ length: parseInt(ex.sets) || 3 }, () => ({ reps: "", load: isBW ? "BW" : prefills[ex.id] ? String(prefills[ex.id].target) : "", rpe: presRpe, done: false }));
+      const pctTarget = pctFills[ex.id]?.target;
+      init[ex.id] = existingLog?.sets?.[ex.id] || Array.from({ length: parseInt(ex.sets) || 3 }, () => ({
+        reps: "",
+        load: isBW ? "BW" : prefills[ex.id] ? String(prefills[ex.id].target) : pctTarget ? String(pctTarget) : "",
+        rpe: presRpe,
+        done: false,
+      }));
     }));
     return init;
   });
@@ -108,12 +126,15 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
     // When the coach prescribed intensity as RPE, give it a dedicated box so the
     // athlete enters weight without typing over the prescription.
     const presRpe = parsePrescribedRpe(ex.load);
+    const pf = pctFills[ex.id];
     return (
       <div key={ex.id} style={{ background: isSupersetMember ? "transparent" : C.surfaceUp, borderRadius: isSupersetMember ? 8 : 10, padding: "10px 12px", marginBottom: isSupersetMember ? 0 : 8, border: isSupersetMember ? `1px solid ${C.border}` : "none" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ color: C.white, fontWeight: 700, fontSize: 14 }}>{ex.name}</span><span style={{ color: C.muted, fontSize: 12 }}>{ex.sets}×{ex.reps}{ex.load ? ` @ ${ex.load}` : ""}</span></div>
-        {(history || bestInfo) && <div style={{ display: "flex", gap: 6, marginBottom: 7, flexWrap: "wrap", alignItems: "center" }}>
+        {(history || bestInfo || pf) && <div style={{ display: "flex", gap: 6, marginBottom: 7, flexWrap: "wrap", alignItems: "center" }}>
           {history && <><span style={{ fontSize: 11, color: C.muted }}>Last ({fmtDate(history.date)}):</span>{history.sets.map((s, i) => <span key={i} style={{ fontSize: 11, color: C.mutedUp, background: C.bg, borderRadius: 4, padding: "1px 7px" }}>S{i + 1}: {s.reps || "—"} @ {s.load || "—"}{s.rpe ? <span style={{ color: C.gold }}> · RPE {s.rpe}</span> : null}</span>)}</>}
           {bestInfo && <span style={{ fontSize: 11, fontWeight: 700, color: C.gold, background: `${C.gold}14`, border: `1px solid ${C.gold}33`, borderRadius: 4, padding: "1px 7px" }}>Best: {bestInfo.best}</span>}
+          {pf && pf.target && <span style={{ fontSize: 11, fontWeight: 700, color: C.teal, background: C.tealGlow, border: `1px solid ${C.teal}44`, borderRadius: 4, padding: "1px 7px" }}>{pf.pct}% of 3RM {pf.bench.value} → {pf.target} lbs{pf.bench.source === "estimated" ? " (est.)" : ""}</span>}
+          {pf && !pf.target && <span style={{ fontSize: 11, color: C.gold }}>{pf.pct}% of 3RM — no benchmark yet, use a weight that feels right</span>}
           {prefills[ex.id] && <span style={{ fontSize: 11, fontWeight: 700, color: C.gold, background: `${C.gold}14`, border: `1px solid ${C.gold}33`, borderRadius: 4, padding: "1px 7px" }}>⬆ Coach bump {prefills[ex.id].rule.pct > 0 ? "+" : ""}{prefills[ex.id].rule.pct}%: {prefills[ex.id].base} → {prefills[ex.id].target}</span>}
         </div>}
         {ex.note && <p style={{ margin: "0 0 8px", fontSize: 12, color: C.teal, fontStyle: "italic" }}>"{ex.note}"</p>}
@@ -123,7 +144,7 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
               <span style={{ fontSize: 10, color: C.muted, width: 14 }}>S{idx + 1}</span>
               <input value={row.reps} inputMode="numeric" onChange={(e) => updSet(ex.id, idx, "reps", e.target.value, exIsBW)} placeholder={ex.reps} style={{ ...inpSm, width: 40 }} />
               <span style={{ color: C.muted, fontSize: 10 }}>@</span>
-              <input value={row.load} inputMode={exIsBW ? "text" : "numeric"} disabled={exIsBW} onChange={(e) => updSet(ex.id, idx, "load", e.target.value, exIsBW, ex.reps)} onBlur={(e) => !exIsBW && fillLoadForward(ex.id, idx, e.target.value)} placeholder={exIsBW ? "BW" : presRpe ? "lbs" : (ex.load || "—")} style={{ ...inpSm, width: 50, opacity: exIsBW ? 0.6 : 1 }} />
+              <input value={row.load} inputMode={exIsBW ? "text" : "numeric"} disabled={exIsBW} onChange={(e) => updSet(ex.id, idx, "load", e.target.value, exIsBW, ex.reps)} onBlur={(e) => !exIsBW && fillLoadForward(ex.id, idx, e.target.value)} placeholder={exIsBW ? "BW" : (presRpe || pf) ? "lbs" : (ex.load || "—")} style={{ ...inpSm, width: 50, opacity: exIsBW ? 0.6 : 1 }} />
               {presRpe && <>
                 <span style={{ color: C.muted, fontSize: 9, fontWeight: 700, letterSpacing: ".03em" }}>RPE</span>
                 <input value={row.rpe ?? ""} inputMode="decimal" onChange={(e) => updSet(ex.id, idx, "rpe", e.target.value, exIsBW)} placeholder={presRpe} title={`Coach prescribed RPE ${presRpe} — change it if the set felt different`} style={{ ...inpSm, width: 34, color: C.gold, fontWeight: 700 }} />

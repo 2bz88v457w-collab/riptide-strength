@@ -88,3 +88,9 @@ as auth passwords). From then on the Edit Athlete screen shows a blank
   "Checked" marks on Needs attention flags. Coach-only RLS. A check hides one
   flag until its state changes (another missed session, another RPE session).
   Until it's run, Needs attention works; only "Checked" is disabled.
+- `09-benchmarks.sql` (safe anytime, safe to re-run) — 3RM benchmarks per
+  athlete per movement. Read by the whole team (an athlete's logging screen
+  turns "75% 3RM" into their own weight), written by the coach only. Holds
+  corrections only: with no row, the 3RM is estimated from their logged sets.
+  Until it's run, estimates and % prescriptions still work; only corrections
+  are disabled.

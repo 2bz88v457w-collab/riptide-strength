@@ -7,7 +7,7 @@ import { SwimmerProfileModal } from "./SwimmerProfileModal";
 import { Avatar, StatCard } from "./common";
 
 // ─── ATHLETE APP ──────────────────────────────────────────────────────────────
-function AthleteApp({ athlete, workouts, logs, testScores, progressions, onConsumeProgressions, onLog, onUpdateAthlete, onLogout }) {
+function AthleteApp({ athlete, workouts, logs, testScores, progressions, benchmarks = [], onConsumeProgressions, onLog, onUpdateAthlete, onLogout }) {
   const myWorkouts = workouts.filter((w) => w.assignees?.includes(athlete.id)).sort((a, b) => b.date.localeCompare(a.date));
   const myLogs = logs.filter((l) => l.athleteId === athlete.id);
   const [logTarget, setLogTarget] = useState(null);
@@ -118,7 +118,7 @@ function AthleteApp({ athlete, workouts, logs, testScores, progressions, onConsu
           );
         })}
       </div>
-      {logTarget && <LogModal workout={logTarget.wkt} athleteId={athlete.id} existingLog={logTarget.existingLog} allLogs={logs} allWorkouts={workouts} progressions={progressions} onConsumeProgressions={onConsumeProgressions} onSave={async (d) => { const ok = await onLog(d); if (ok !== false) setLogTarget(null); return ok; }} onClose={() => setLogTarget(null)} />}
+      {logTarget && <LogModal workout={logTarget.wkt} athleteId={athlete.id} existingLog={logTarget.existingLog} allLogs={logs} allWorkouts={workouts} progressions={progressions} benchmarks={benchmarks} onConsumeProgressions={onConsumeProgressions} onSave={async (d) => { const ok = await onLog(d); if (ok !== false) setLogTarget(null); return ok; }} onClose={() => setLogTarget(null)} />}
       {showProfile && <SwimmerProfileModal athlete={athlete} onSave={onUpdateAthlete} onClose={() => setShowProfile(false)} />}
     </div>
   );

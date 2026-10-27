@@ -37,6 +37,8 @@ export default function App() {
   const [assessments, setAssessments] = useState([]);
   const [noteReviews, setNoteReviews] = useState([]);
   const [reviewsReady, setReviewsReady] = useState(false);
+  const [benchmarks, setBenchmarks] = useState([]);
+  const [benchmarksReady, setBenchmarksReady] = useState(false);
   const [attentionChecks, setAttentionChecks] = useState([]);
   const [checksReady, setChecksReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -74,6 +76,14 @@ export default function App() {
       setTestScores(take(ts, "test scores"));
       setProgressions(take(prog, "progressions"));
       setAssessments(take(assess, "assessments").map(parseAssessment));
+      // Optional until supabase/09-benchmarks.sql is run — a missing table must
+      // not break logging, so it is fetched apart from the required six.
+      supabase.from("benchmarks").select("*").then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) { console.warn("Benchmarks unavailable:", error.message); setBenchmarksReady(false); return; }
+        setBenchmarks(data || []);
+        setBenchmarksReady(true);
+      });
       if (failed.length) alert(`Some data failed to load (${failed.join(", ")}). Close and reopen the app to retry.`);
       setLoading(false);
     }
@@ -288,6 +298,22 @@ export default function App() {
     return true;
   }, []);
 
+  // A coach correction to an estimated 3RM; null clears it back to the estimate.
+  const saveBenchmark = useCallback(async (athleteId, movement, value) => {
+    const key = (movement || "").toLowerCase().trim();
+    if (value === null) {
+      const { error } = await supabase.from("benchmarks").delete().eq("athlete_id", athleteId).eq("movement", key);
+      if (error) { reportDbError("Clearing a benchmark", error); return false; }
+      setBenchmarks((bs) => bs.filter((b) => !(b.athlete_id === athleteId && b.movement === key)));
+      return true;
+    }
+    const row = { athlete_id: athleteId, movement: key, value, updated_at: new Date().toISOString() };
+    const { error } = await supabase.from("benchmarks").upsert(row, { onConflict: "athlete_id,movement" });
+    if (error) { reportDbError("Saving a benchmark", error); return false; }
+    setBenchmarks((bs) => [...bs.filter((b) => !(b.athlete_id === athleteId && b.movement === key)), row]);
+    return true;
+  }, []);
+
   const handleLogout = useCallback(() => { signOut(); }, []);
 
   if (authSession === undefined) return <LoadingScreen />;
@@ -295,7 +321,7 @@ export default function App() {
   if (loading) return <LoadingScreen />;
 
   const role = sessionRole(authSession);
-  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onImportRoster={importRoster} onSaveTestScore={saveTestScore} noteReviews={noteReviews} reviewsReady={reviewsReady} onMarkNoteAddressed={markNoteAddressed} attentionChecks={attentionChecks} checksReady={checksReady} onCheckAttention={checkAttention} onUncheckAttention={uncheckAttention} onBulkTag={bulkTagAthletes} onLogout={handleLogout} />;
+  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onImportRoster={importRoster} onSaveTestScore={saveTestScore} noteReviews={noteReviews} reviewsReady={reviewsReady} onMarkNoteAddressed={markNoteAddressed} attentionChecks={attentionChecks} checksReady={checksReady} onCheckAttention={checkAttention} onUncheckAttention={uncheckAttention} benchmarks={benchmarks} benchmarksReady={benchmarksReady} onSaveBenchmark={saveBenchmark} onBulkTag={bulkTagAthletes} onLogout={handleLogout} />;
 
   const me = athletes.find((a) => a.user_id === authSession.user.id);
   if (!me) return (
@@ -305,5 +331,5 @@ export default function App() {
       <button onClick={handleLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, fontSize: 13, padding: "8px 18px", cursor: "pointer", fontFamily: "inherit" }}>Log out</button>
     </div>
   );
-  return <AthleteApp athlete={me} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} onConsumeProgressions={deleteProgressions} onLog={saveLog} onUpdateAthlete={updateAthleteProfile} onLogout={handleLogout} />;
+  return <AthleteApp athlete={me} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} benchmarks={benchmarks} onConsumeProgressions={deleteProgressions} onLog={saveLog} onUpdateAthlete={updateAthleteProfile} onLogout={handleLogout} />;
 }

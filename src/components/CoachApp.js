@@ -17,7 +17,7 @@ import { TestScoreModal } from "./TestScoreModal";
 import { Avatar, Btn, StatCard } from "./common";
 
 // ─── COACH APP ────────────────────────────────────────────────────────────────
-function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onImportRoster, onSaveTestScore, onBulkTag, onLogout, noteReviews = [], reviewsReady = false, onMarkNoteAddressed, attentionChecks = [], checksReady = false, onCheckAttention, onUncheckAttention }) {
+function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onImportRoster, onSaveTestScore, onBulkTag, onLogout, noteReviews = [], reviewsReady = false, onMarkNoteAddressed, attentionChecks = [], checksReady = false, onCheckAttention, onUncheckAttention, benchmarks = [], benchmarksReady = false, onSaveBenchmark }) {
   const [tab, setTab] = useState("workouts");
   const [showBuilder, setShowBuilder] = useState(false);
   const [planSource, setPlanSource] = useState(null);   // { source, initialWeeks }
@@ -370,7 +370,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
         )}
 
         {tab === "progress" && (
-          <ProgressDashboard athletes={athletes} testScores={testScores} workouts={workouts} logs={logs} seasons={seasons} defaultSeason={latestSeason} onEnterScores={() => setShowTestEntry(true)} />
+          <ProgressDashboard athletes={athletes} testScores={testScores} workouts={workouts} logs={logs} seasons={seasons} defaultSeason={latestSeason} benchmarks={benchmarks} benchmarksReady={benchmarksReady} onSaveBenchmark={onSaveBenchmark} onEnterScores={() => setShowTestEntry(true)} />
         )}
 
       </div>

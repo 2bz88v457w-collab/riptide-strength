@@ -2,12 +2,13 @@ import { useState } from "react";
 import { C, TEST_METRICS } from "../constants";
 import { Avatar, Btn } from "./common";
 import { LogProgress } from "./LogProgress";
+import { BenchmarkTab } from "./BenchmarkTab";
 
 // ─── COACH PROGRESS DASHBOARD ─────────────────────────────────────────────────
 // Two ways to read progress: baselines derived from what athletes log (the
 // default — no test day required, covers every movement), and the three-metric
 // Test Days, kept for whenever a formal test is actually run.
-function ProgressDashboard({ athletes, testScores, workouts, logs, seasons = [], defaultSeason, onEnterScores }) {
+function ProgressDashboard({ athletes, testScores, workouts, logs, seasons = [], defaultSeason, benchmarks = [], benchmarksReady = false, onSaveBenchmark, onEnterScores }) {
   const [mode, setMode] = useState("logs");
   const tab = (key, label) => (
     <button key={key} onClick={() => setMode(key)} style={{ border: "none", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: mode === key ? C.teal : "transparent", color: mode === key ? C.bg : C.muted }}>{label}</button>
@@ -18,18 +19,21 @@ function ProgressDashboard({ athletes, testScores, workouts, logs, seasons = [],
         <div>
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Progress</h1>
           <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>
-            {mode === "logs" ? "Baselines from what they log — no test day needed" : `${testScores.length} test entries · ${athletes.filter((a) => testScores.some((s) => s.athleteId === a.id)).length} athletes tested`}
+            {mode === "logs" ? "Baselines from what they log — no test day needed"
+              : mode === "3rm" ? "Estimated 3RMs — what \"75% 3RM\" resolves to for each athlete"
+              : `${testScores.length} test entries · ${athletes.filter((a) => testScores.some((s) => s.athleteId === a.id)).length} athletes tested`}
           </p>
         </div>
         {mode === "tests" && <Btn onClick={onEnterScores}>+ Enter scores</Btn>}
       </div>
       <div style={{ display: "flex", gap: 4, marginBottom: 16, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 22, padding: 3, width: "fit-content" }}>
         {tab("logs", "From logs")}
+        {tab("3rm", "3RM")}
         {tab("tests", "Test days")}
       </div>
-      {mode === "logs"
-        ? <LogProgress athletes={athletes} workouts={workouts} logs={logs} seasons={seasons} defaultSeason={defaultSeason} />
-        : <TestScoreProgress athletes={athletes} testScores={testScores} />}
+      {mode === "logs" && <LogProgress athletes={athletes} workouts={workouts} logs={logs} seasons={seasons} defaultSeason={defaultSeason} />}
+      {mode === "3rm" && <BenchmarkTab athletes={athletes} workouts={workouts} logs={logs} seasons={seasons} defaultSeason={defaultSeason} benchmarks={benchmarks} ready={benchmarksReady} onSave={onSaveBenchmark} />}
+      {mode === "tests" && <TestScoreProgress athletes={athletes} testScores={testScores} />}
     </div>
   );
 }
