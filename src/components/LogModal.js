@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { C, blockColor } from "../constants";
 import { fmtDate, getSupersetLabels, getLastSets, parseLoadNum, getProgressionFill, getBestLoad, parsePrescribedRpe, parsePrescribedPct, athlete3RM, pctTargetLoad } from "../helpers";
 import { lastSessionNotes } from "../notes";
@@ -7,7 +7,7 @@ import { Btn } from "./common";
 // ─── LOG MODAL ────────────────────────────────────────────────────────────────
 // preview: the coach's look at a workout from the builder — same screen, not
 // tied to a swimmer, and nothing can be saved from it.
-function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progressions = [], benchmarks = [], onConsumeProgressions, onSave, onClose, preview = false }) {
+function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progressions = [], benchmarks = [], onConsumeProgressions, onSave, onAutoSave, onClose, preview = false }) {
   // Coach bumps that fire in this session, frozen at open: { [exId]: { rule, base, target } }.
   // Only fresh logs get pre-filled — re-opening a saved log never re-fills or re-consumes.
   const [prefills] = useState(() => {
@@ -49,6 +49,13 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
     }));
     return init;
   });
+  // Athletes forget the Save button, so the session saves itself as they go.
+  // "As they go" has to mean *after they type something* — the sets start out
+  // pre-filled with prescribed RPEs, coach bumps and % targets, and merely
+  // opening a workout must not record them as having trained.
+  const [untouched] = useState(() => JSON.stringify(sets));
+  const [autoState, setAutoState] = useState({ status: "idle", at: null });
+  const bumpsConsumed = useRef(false);
   const [note, setNote] = useState(existingLog?.note || "");
   const [blockNotes, setBlockNotes] = useState(() => { const init = {}; workout.blocks.forEach((b) => { init[b.id] = existingLog?.blockNotes?.[b.id] || ""; }); return init; });
   const [rpe, setRpe] = useState(existingLog?.rpe || "");
@@ -107,11 +114,57 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
   const toggleDone = (exId, idx, prescribedReps) => {
     setSets((s) => { const current = s[exId][idx]; const nowDone = !current.done; const reps = current.reps || (nowDone ? prescribedReps : ""); return { ...s, [exId]: s[exId].map((r, i) => i === idx ? { ...r, done: nowDone, reps } : r) }; });
   };
+  const hasContent = useMemo(() => {
+    if (String(rpe || "").trim() || note.trim()) return true;
+    if (Object.values(blockNotes || {}).some((t) => t?.trim())) return true;
+    return JSON.stringify(sets) !== untouched;
+  }, [sets, note, blockNotes, rpe, untouched]);
+
+  // Read through a ref so the save function stays stable for the listeners below.
+  const latest = useRef(null);
+  latest.current = { sets, note, blockNotes, rpe, hasContent };
+
+  const autoSave = useCallback(async () => {
+    const now = latest.current;
+    if (preview || !onAutoSave || !now.hasContent) return;
+    setAutoState({ status: "saving", at: null });
+    const ok = await onAutoSave({ athleteId, workoutId: workout.id, date: workout.date, sets: now.sets, note: now.note, blockNotes: now.blockNotes, rpe: now.rpe });
+    setAutoState(ok === false ? { status: "error", at: null } : { status: "saved", at: Date.now() });
+    // A bump is spent once the session is on record, however it got there —
+    // otherwise an unsubmitted session would bump again from the new weight.
+    if (ok !== false && !bumpsConsumed.current) {
+      bumpsConsumed.current = true;
+      const ruleIds = [...new Set(Object.values(prefills).map((p) => p.rule.id))];
+      if (ruleIds.length && onConsumeProgressions) await onConsumeProgressions(ruleIds);
+    }
+  }, [preview, onAutoSave, athleteId, workout.id, workout.date, prefills, onConsumeProgressions]);
+
+  // A few seconds after they stop typing.
+  useEffect(() => {
+    if (preview || !onAutoSave || !hasContent) return;
+    const t = setTimeout(autoSave, 2500);
+    return () => clearTimeout(t);
+  }, [sets, note, blockNotes, rpe, hasContent, preview, onAutoSave, autoSave]);
+
+  // And immediately if the phone locks, the app goes to the background, or the
+  // tab closes — the moments a half-logged session used to disappear.
+  useEffect(() => {
+    if (preview || !onAutoSave) return;
+    const onHidden = () => { if (document.visibilityState === "hidden") autoSave(); };
+    document.addEventListener("visibilitychange", onHidden);
+    window.addEventListener("pagehide", autoSave);
+    return () => {
+      document.removeEventListener("visibilitychange", onHidden);
+      window.removeEventListener("pagehide", autoSave);
+    };
+  }, [preview, onAutoSave, autoSave]);
+
   const handleSave = async () => {
     setSaving(true);
     const ok = await onSave({ athleteId, workoutId: workout.id, date: workout.date, sets, note, blockNotes, rpe });
     // A bump is one-time: consume every rule that fired in this session, even if the athlete edited the value.
-    if (ok !== false && onConsumeProgressions) {
+    if (ok !== false && onConsumeProgressions && !bumpsConsumed.current) {
+      bumpsConsumed.current = true;
       const ruleIds = [...new Set(Object.values(prefills).map((p) => p.rule.id))];
       if (ruleIds.length) await onConsumeProgressions(ruleIds);
     }
@@ -250,7 +303,18 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
         </div>
         {preview
           ? <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12 }}><span style={{ fontSize: 12, color: C.muted }}>Preview — not saved</span><Btn onClick={onClose}>Back to builder</Btn></div>
-          : <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save session"}</Btn></div>}
+          : <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              {onAutoSave && (
+                <span data-testid="autosave-status" style={{ flex: 1, minWidth: 140, fontSize: 11.5, color: autoState.status === "error" ? C.red : C.muted }}>
+                  {autoState.status === "saving" && "Saving…"}
+                  {autoState.status === "saved" && `Saved automatically at ${new Date(autoState.at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
+                  {autoState.status === "error" && "Couldn't save yet — it'll keep trying while this stays open"}
+                  {autoState.status === "idle" && (hasContent ? "Saving as you go…" : "Saves itself as you log — the button just finishes up")}
+                </span>
+              )}
+              <Btn variant="ghost" onClick={onClose}>{onAutoSave ? "Close" : "Cancel"}</Btn>
+              <Btn onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save session"}</Btn>
+            </div>}
       </div>
     </div>
   );

@@ -131,7 +131,10 @@ export default function App() {
     return true;
   }, []);
 
-  const saveLog = useCallback(async (log) => {
+  // silent: the autosave path. Failures stay in the console (a popup every few
+  // seconds on a flaky connection would be worse than the problem), and local
+  // state is patched rather than refetching every log in the team.
+  const saveLog = useCallback(async (log, { silent = false } = {}) => {
     const payload = {
       ...log,
       sets: JSON.stringify(log.sets),
@@ -140,13 +143,19 @@ export default function App() {
     };
     const exists = logs.find((l) => l.athleteId === log.athleteId && l.workoutId === log.workoutId);
     // Use the row's primary key id to avoid quoted column name issues in the WHERE clause
-    const { error } = exists
-      ? await supabase.from("logs").update(payload).eq("id", exists.id)
-      : await supabase.from("logs").insert(payload);
+    const { data: written, error } = exists
+      ? await supabase.from("logs").update(payload).eq("id", exists.id).select()
+      : await supabase.from("logs").insert(payload).select();
     if (error) {
       console.error("Log save error:", error);
-      alert("Session failed to save: " + error.message);
+      if (!silent) alert("Session failed to save: " + error.message);
       return false;
+    }
+    // The returned row carries the id an inserted draft needs for its next update.
+    if (silent && written?.[0]) {
+      const row = parseLog(written[0]);
+      setLogs((ls) => ls.some((l) => l.id === row.id) ? ls.map((l) => l.id === row.id ? row : l) : [...ls, row]);
+      return true;
     }
     const { data, error: refreshError } = await supabase.from("logs").select("*");
     if (refreshError) { console.error("Refreshing logs failed:", refreshError); return true; }
@@ -331,5 +340,5 @@ export default function App() {
       <button onClick={handleLogout} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, color: C.mutedUp, fontSize: 13, padding: "8px 18px", cursor: "pointer", fontFamily: "inherit" }}>Log out</button>
     </div>
   );
-  return <AthleteApp athlete={me} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} benchmarks={benchmarks} onConsumeProgressions={deleteProgressions} onLog={saveLog} onUpdateAthlete={updateAthleteProfile} onLogout={handleLogout} />;
+  return <AthleteApp athlete={me} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} benchmarks={benchmarks} onAutoSaveLog={(d) => saveLog(d, { silent: true })} onConsumeProgressions={deleteProgressions} onLog={saveLog} onUpdateAthlete={updateAthleteProfile} onLogout={handleLogout} />;
 }
