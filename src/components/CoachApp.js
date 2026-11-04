@@ -7,6 +7,7 @@ import { AttentionTab } from "./AttentionTab";
 import { PlanWeeksModal } from "./PlanWeeksModal";
 import { BuilderModal } from "./BuilderModal";
 import { EditAthleteModal } from "./EditAthleteModal";
+import { LogModal } from "./LogModal";
 import { ProgressDashboard } from "./ProgressDashboard";
 import { ProgressionTab } from "./ProgressionTab";
 import { NotesTab } from "./NotesTab";
@@ -17,7 +18,7 @@ import { TestScoreModal } from "./TestScoreModal";
 import { Avatar, Btn, StatCard } from "./common";
 
 // ─── COACH APP ────────────────────────────────────────────────────────────────
-function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onImportRoster, onSaveTestScore, onBulkTag, onLogout, noteReviews = [], reviewsReady = false, onMarkNoteAddressed, attentionChecks = [], checksReady = false, onCheckAttention, onUncheckAttention, benchmarks = [], benchmarksReady = false, onSaveBenchmark }) {
+function CoachApp({ athletes, workouts, logs, testScores, progressions, assessments, onSaveAssessment, onDeleteAssessment, onSaveProgressions, onDeleteProgression, onSaveWorkout, onDeleteWorkout, onUpdateAthlete, onDeleteAthlete, onAddAthlete, onImportRoster, onSaveTestScore, onBulkTag, onLogout, noteReviews = [], reviewsReady = false, onMarkNoteAddressed, attentionChecks = [], checksReady = false, onCheckAttention, onUncheckAttention, benchmarks = [], benchmarksReady = false, onSaveBenchmark, onSaveLog, onDeleteLog }) {
   const [tab, setTab] = useState("workouts");
   const [showBuilder, setShowBuilder] = useState(false);
   const [planSource, setPlanSource] = useState(null);   // { source, initialWeeks }
@@ -29,6 +30,7 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
   const [showImport, setShowImport] = useState(false);
   const [showTestEntry, setShowTestEntry] = useState(false);
   const [sessionDetail, setSessionDetail] = useState(null);
+  const [editLog, setEditLog] = useState(null);   // { log, workout, athlete }
   const [newAthlete, setNewAthlete] = useState({ name: "", event: "", pin: "" });
   const [adding, setAdding] = useState(false);
   const [rosterFilter, setRosterFilter] = useState("All");
@@ -384,7 +386,30 @@ function CoachApp({ athletes, workouts, logs, testScores, progressions, assessme
       {planSource && <PlanWeeksModal source={planSource.source} workouts={workouts} initialWeeks={planSource.initialWeeks} onSaveWorkout={onSaveWorkout} onClose={() => setPlanSource(null)} />}
       {showImport && <RosterImportModal athletes={athletes} onImport={onImportRoster} onClose={() => setShowImport(false)} />}
       {editAthlete && <EditAthleteModal athlete={editAthlete} allTags={allTags} onSave={async (updated) => { await onUpdateAthlete(updated); setEditAthlete(null); if (selectedAthlete?.id === updated.id) setSelectedAthlete(updated); }} onArchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: true }); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onUnarchive={async () => { await onUpdateAthlete({ ...editAthlete, archived: false }); setEditAthlete(null); }} onDelete={async () => { await onDeleteAthlete(editAthlete.id); setEditAthlete(null); if (selectedAthlete?.id === editAthlete.id) setSelectedAthlete(null); }} onClose={() => setEditAthlete(null)} />}
-      {sessionDetail && <SessionDetailModal log={sessionDetail.log} workout={sessionDetail.workout} athlete={sessionDetail.athlete} onClose={() => setSessionDetail(null)} />}
+      {sessionDetail && <SessionDetailModal log={sessionDetail.log} workout={sessionDetail.workout} athlete={sessionDetail.athlete}
+        onEdit={onSaveLog ? () => { setEditLog(sessionDetail); setSessionDetail(null); } : undefined}
+        onDelete={onDeleteLog ? async (log) => { const ok = await onDeleteLog(log); if (ok !== false) setSessionDetail(null); } : undefined}
+        onClose={() => setSessionDetail(null)} />}
+
+      {/* The athlete's own logging screen, with their session in it. No autosave
+          here: a coach correction is deliberate, and saves when they say so. */}
+      {editLog && (
+        <LogModal
+          workout={editLog.workout}
+          athleteId={editLog.athlete?.id ?? editLog.log.athleteId}
+          existingLog={editLog.log}
+          allLogs={logs}
+          allWorkouts={workouts}
+          progressions={[]}
+          benchmarks={benchmarks}
+          onSave={async (d) => {
+            const ok = await onSaveLog({ ...d, athleteId: editLog.athlete?.id ?? editLog.log.athleteId });
+            if (ok !== false) setEditLog(null);
+            return ok;
+          }}
+          onClose={() => setEditLog(null)}
+        />
+      )}
       {showTestEntry && <TestScoreModal athletes={athletes} onSave={async (score) => { await onSaveTestScore(score); setShowTestEntry(false); }} onClose={() => setShowTestEntry(false)} />}
     </div>
   );

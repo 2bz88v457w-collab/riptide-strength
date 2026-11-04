@@ -3,8 +3,14 @@ import { fmtDate, getSupersetLabels } from "../helpers";
 import { Btn } from "./common";
 
 // ─── SESSION DETAIL MODAL ─────────────────────────────────────────────────────
-function SessionDetailModal({ log, workout, athlete, onClose }) {
+function SessionDetailModal({ log, workout, athlete, onEdit, onDelete, onClose }) {
   if (!log || !workout) return null;
+  // Deleting a session takes real work with it, so it asks first — same rule as
+  // deleting a workout.
+  const remove = async () => {
+    if (!window.confirm(`Clear ${athlete?.name || "this athlete"}'s session for ${workout.title} on ${fmtDate(log.date)}?\n\nTheir numbers and notes for it are deleted, and they will show as not having logged that day.`)) return;
+    await onDelete(log);
+  };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.82)", zIndex: 200, overflowY: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={{ background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 18, width: "100%", maxWidth: 640, padding: 26 }}>
@@ -56,7 +62,11 @@ function SessionDetailModal({ log, workout, athlete, onClose }) {
             </div>
           );
         })}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}><Btn variant="ghost" onClick={onClose}>Close</Btn></div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+          {onDelete && <Btn variant="danger" small onClick={remove}>Clear session</Btn>}
+          {onEdit && <Btn variant="ghost" small onClick={() => onEdit(log)}>Fix numbers</Btn>}
+          <Btn variant="ghost" small onClick={onClose}>Close</Btn>
+        </div>
       </div>
     </div>
   );

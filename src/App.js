@@ -163,6 +163,15 @@ export default function App() {
     return true;
   }, [logs]);
 
+  // Coach-only: clear a session a swimmer logged wrongly. RLS allows the delete
+  // for the coach alone.
+  const deleteLog = useCallback(async (log) => {
+    const { error } = await supabase.from("logs").delete().eq("id", log.id);
+    if (error) { reportDbError("Clearing a session", error); return false; }
+    setLogs((ls) => ls.filter((l) => l.id !== log.id));
+    return true;
+  }, []);
+
   const saveTestScore = useCallback(async (score) => {
     const { error } = await supabase.from("test_scores").insert(score);
     if (error) { reportDbError("Saving test scores", error); return false; }
@@ -330,7 +339,7 @@ export default function App() {
   if (loading) return <LoadingScreen />;
 
   const role = sessionRole(authSession);
-  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onImportRoster={importRoster} onSaveTestScore={saveTestScore} noteReviews={noteReviews} reviewsReady={reviewsReady} onMarkNoteAddressed={markNoteAddressed} attentionChecks={attentionChecks} checksReady={checksReady} onCheckAttention={checkAttention} onUncheckAttention={uncheckAttention} benchmarks={benchmarks} benchmarksReady={benchmarksReady} onSaveBenchmark={saveBenchmark} onBulkTag={bulkTagAthletes} onLogout={handleLogout} />;
+  if (role === "coach") return <CoachApp athletes={athletes} workouts={workouts} logs={logs} testScores={testScores} progressions={progressions} assessments={assessments} onSaveAssessment={saveAssessment} onDeleteAssessment={deleteAssessment} onSaveProgressions={saveProgressions} onDeleteProgression={(id) => deleteProgressions([id])} onSaveWorkout={saveWorkout} onDeleteWorkout={deleteWorkout} onUpdateAthlete={coachUpdateAthlete} onDeleteAthlete={deleteAthlete} onAddAthlete={addAthlete} onImportRoster={importRoster} onSaveTestScore={saveTestScore} noteReviews={noteReviews} reviewsReady={reviewsReady} onMarkNoteAddressed={markNoteAddressed} attentionChecks={attentionChecks} checksReady={checksReady} onCheckAttention={checkAttention} onUncheckAttention={uncheckAttention} benchmarks={benchmarks} benchmarksReady={benchmarksReady} onSaveBenchmark={saveBenchmark} onSaveLog={saveLog} onDeleteLog={deleteLog} onBulkTag={bulkTagAthletes} onLogout={handleLogout} />;
 
   const me = athletes.find((a) => a.user_id === authSession.user.id);
   if (!me) return (
