@@ -16,6 +16,8 @@ const FLAG_STYLE = {
 function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady = false, onMarkAddressed, checks = [], checksReady = false, onCheck, onUncheck, onFixEntry }) {
   const [groupFilter, setGroupFilter] = useState("All");
   const [showChecked, setShowChecked] = useState(false);
+  // Clicking a count card narrows the page to that one kind of problem.
+  const [focus, setFocus] = useState(null);
   const [seasonFilter, setSeasonFilter] = useState("All");
   // Inclusive date range; blank means open-ended on that side.
   const [from, setFrom] = useState("");
@@ -65,6 +67,24 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
     && (!from || c.date >= from) && (!to || c.date <= to));
   const noteCount = (level) => notes.filter((c) => c.level === level).length;
 
+  const CARDS = [
+    { key: "entry", label: "Entries to check", count: entryFlags.length, color: C.gold },
+    { key: "pain", label: "Pain / injury notes", count: noteCount("pain"), color: C.red },
+    { key: "sore", label: "Sore (last 7 days)", count: noteCount("sore"), color: C.gold },
+    { key: "quiet", label: "Not logging", count: count("quiet"), color: C.red },
+    { key: "ramp", label: "RPE climbing", count: count("ramp"), color: C.gold },
+    { key: "flat", label: "RPE flat & low", count: count("flat"), color: "#A78BFA" },
+  ];
+  const FLAG_KINDS = ["quiet", "ramp", "flat"];
+  // With a card selected, each section shows only what belongs to it — and an
+  // athlete row shows only the flag that was asked for.
+  const focusNotes = focus === "pain" || focus === "sore" ? notes.filter((c) => c.level === focus) : focus ? [] : notes;
+  const focusEntries = !focus || focus === "entry" ? entryFlags : [];
+  const focusRows = !focus ? rows
+    : FLAG_KINDS.includes(focus)
+      ? rows.filter((r) => r.flags.some((f) => f.kind === focus)).map((r) => ({ ...r, flags: r.flags.filter((f) => f.kind === focus) }))
+      : [];
+
   const pill = (label, active, onClick, key) => (
     <button key={key} onClick={onClick} style={{ border: `1px solid ${active ? C.teal : C.border}`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: active ? C.tealGlow : "transparent", color: active ? C.teal : C.mutedUp }}>{label}</button>
   );
@@ -112,20 +132,37 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
       </div>
 
       {(rows.length > 0 || notes.length > 0 || entryFlags.length > 0) && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
-          {[["Entries to check", entryFlags.length, C.gold], ["Pain / injury notes", noteCount("pain"), C.red], ["Sore (last 7 days)", noteCount("sore"), C.gold], ["Not logging", count("quiet"), C.red], ["RPE climbing", count("ramp"), C.gold], ["RPE flat & low", count("flat"), "#A78BFA"]].map(([label, n, color]) => (
-            <div key={label} style={{ background: C.surfaceUp, borderRadius: 12, padding: "14px 16px", border: `1px solid ${C.border}` }}>
-              <p style={{ margin: 0, fontSize: 11, color: C.muted, letterSpacing: ".06em", textTransform: "uppercase" }}>{label}</p>
-              <p style={{ margin: "5px 0 0", fontSize: 26, fontWeight: 800, color: n ? color : C.muted }}>{n}</p>
-            </div>
-          ))}
-        </div>
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 10 }}>
+            {CARDS.map(({ key, label, count: n, color }) => {
+              const on = focus === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setFocus(on ? null : key)}
+                  disabled={n === 0}
+                  aria-pressed={on}
+                  title={n === 0 ? `Nothing to show for ${label.toLowerCase()}` : on ? "Show everything again" : `Show only ${label.toLowerCase()}`}
+                  style={{ textAlign: "left", background: on ? `${color}1f` : C.surfaceUp, borderRadius: 12, padding: "14px 16px", border: `1px solid ${on ? color : C.border}`, cursor: n === 0 ? "default" : "pointer", fontFamily: "inherit" }}
+                >
+                  <p style={{ margin: 0, fontSize: 11, color: on ? color : C.muted, letterSpacing: ".06em", textTransform: "uppercase", fontWeight: on ? 800 : 400 }}>{label}</p>
+                  <p style={{ margin: "5px 0 0", fontSize: 26, fontWeight: 800, color: n ? color : C.muted }}>{n}</p>
+                </button>
+              );
+            })}
+          </div>
+          {focus && (
+            <button onClick={() => setFocus(null)} style={{ background: "none", border: "none", color: C.teal, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", padding: 0, marginBottom: 14 }}>
+              ← Showing only {CARDS.find((c) => c.key === focus)?.label.toLowerCase()} · show everything
+            </button>
+          )}
+        </>
       )}
 
-      {entryFlags.length > 0 && (
+      {focusEntries.length > 0 && (
         <div style={{ marginBottom: 22 }}>
           <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 800, color: C.gold, textTransform: "uppercase", letterSpacing: ".06em" }}>Entries to check</p>
-          {entryFlags.map((f) => (
+          {focusEntries.map((f) => (
             <div key={f.checkKind} data-testid="entry-flag" style={{ background: C.surface, border: `1px solid ${C.gold}55`, borderRadius: 12, padding: "10px 14px", marginBottom: 6, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 180 }}>
                 <p style={{ margin: 0, fontSize: 13.5, color: C.white, fontWeight: 700 }}>
@@ -153,7 +190,7 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
         </div>
       )}
 
-      {notes.length > 0 && (
+      {focusNotes.length > 0 && (!focus || focus === "pain" || focus === "sore") && (
         <div style={{ marginBottom: 22 }}>
           <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 800, color: C.red, textTransform: "uppercase", letterSpacing: ".06em" }}>Notes to look at</p>
           {!reviewsReady && (
@@ -161,11 +198,11 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
               "Mark addressed" turns on once <code>supabase/07-note-reviews.sql</code> has been run in Supabase.
             </p>
           )}
-          {notes.map((c) => <NoteCard key={c.log.id ?? `${c.log.athleteId}-${c.log.workoutId}`} card={c} reviewsReady={reviewsReady} onMarkAddressed={onMarkAddressed} />)}
+          {focusNotes.map((c) => <NoteCard key={c.log.id ?? `${c.log.athleteId}-${c.log.workoutId}`} card={c} reviewsReady={reviewsReady} onMarkAddressed={onMarkAddressed} />)}
         </div>
       )}
 
-      {rows.length === 0 && notes.length === 0 && entryFlags.length === 0 && (
+      {focusRows.length === 0 && focusNotes.length === 0 && focusEntries.length === 0 && (
         <div style={{ textAlign: "center", padding: "48px 0", color: C.muted }}>
           <p style={{ fontSize: 32, margin: "0 0 8px" }}>✓</p>
           <p style={{ margin: 0, color: C.teal, fontWeight: 700 }}>Nobody needs attention right now.</p>
@@ -176,13 +213,13 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
         </div>
       )}
 
-      {onCheck && !checksReady && rows.length > 0 && (
+      {onCheck && !checksReady && focusRows.length > 0 && (
         <p style={{ margin: "0 0 10px", fontSize: 12, color: C.gold }}>
           "Checked" turns on once <code>supabase/08-attention-checks.sql</code> has been run in Supabase.
         </p>
       )}
 
-      {rows.map(({ athlete: a, flags, logCount }) => (
+      {focusRows.map(({ athlete: a, flags, logCount }) => (
         <div key={a.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8, display: "flex", gap: 12, alignItems: "flex-start" }}>
           <Avatar name={a.name} size={38} />
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -215,7 +252,7 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
         </div>
       ))}
 
-      {checked.length > 0 && (
+      {checked.length > 0 && !focus && (
         <div style={{ marginTop: 18, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
           <button onClick={() => setShowChecked((v) => !v)} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0 }}>
             {showChecked ? "▾" : "▸"} Checked ({checked.length})

@@ -60,3 +60,70 @@ test('season and group filters narrow together', () => {
   fireEvent.click(screen.getByText('7 Lane'));                 // Ann is 8 Lane
   expect(screen.getByText('Nobody needs attention right now.')).toBeInTheDocument();
 });
+
+describe('the count cards as filters', () => {
+  const HISTORY = { id: 'h1', title: 'Week 1', date: daysAgo(9), season: '26-27 Short Course', assignees: ['a1'], blocks: [{ id: 'hb', name: 'Block 1', exercises: [{ id: 'he', name: 'Farmer Carry' }] }] };
+  const TODAY = { id: 't1', title: 'Week 2', date: daysAgo(1), season: '26-27 Short Course', assignees: ['a1', 'a2'], blocks: [{ id: 'tb', name: 'Block 1', exercises: [{ id: 'te', name: 'Farmer Carry' }] }] };
+  // Ann: a suspect entry AND a pain note. Ben: assigned, never logged.
+  const LOGS = [
+    { id: 1, athleteId: 'a1', workoutId: 'h1', sets: { he: [{ reps: '20', load: '40', done: true }] } },
+    { id: 2, athleteId: 'a1', workoutId: 't1', note: 'shoulder hurts', blockNotes: {}, sets: { te: [{ reps: '20', load: '9000', done: true }] } },
+  ];
+  const painNote = {
+    log: LOGS[1], athlete: ATHLETES[0], workout: TODAY, date: TODAY.date, loggedAt: Date.now(), level: 'pain', active: true,
+    entries: [{ label: 'Session note', text: 'shoulder hurts', scan: { level: 'pain', terms: ['hurts'] } }],
+  };
+  const open = () => render(
+    <AttentionTab athletes={ATHLETES} workouts={[HISTORY, TODAY]} logs={LOGS} noteFlags={[painNote]} reviewsReady
+      checksReady onCheck={jest.fn()} onUncheck={jest.fn()} onMarkAddressed={jest.fn()} onFixEntry={jest.fn()} />
+  );
+  const card = (label) => screen.getByTitle(new RegExp(`only ${label}|everything again`, 'i'));
+
+  test('everything shows until a card is clicked', () => {
+    open();
+    expect(screen.getByTestId('entry-flag')).toBeInTheDocument();
+    expect(screen.getByTestId('note-card')).toBeInTheDocument();
+    expect(screen.getByText('Ben Brown')).toBeInTheDocument();          // not logging
+  });
+
+  test('Pain / injury shows the note and hides the rest', () => {
+    open();
+    fireEvent.click(card('pain / injury notes'));
+    expect(screen.getByTestId('note-card')).toBeInTheDocument();
+    expect(screen.queryByTestId('entry-flag')).toBeNull();
+    expect(screen.queryByText('Ben Brown')).toBeNull();
+    expect(screen.getByText(/Showing only pain \/ injury notes/)).toBeInTheDocument();
+  });
+
+  test('Entries to check shows only those', () => {
+    open();
+    fireEvent.click(card('entries to check'));
+    expect(screen.getByTestId('entry-flag')).toBeInTheDocument();
+    expect(screen.queryByTestId('note-card')).toBeNull();
+  });
+
+  test('Not logging shows only the athletes who went quiet', () => {
+    open();
+    fireEvent.click(card('not logging'));
+    expect(screen.getByText('Ben Brown')).toBeInTheDocument();
+    expect(screen.queryByTestId('entry-flag')).toBeNull();
+    expect(screen.queryByTestId('note-card')).toBeNull();
+  });
+
+  test('clicking the same card again, or the link, shows everything', () => {
+    open();
+    fireEvent.click(card('entries to check'));
+    fireEvent.click(card('entries to check'));                          // toggles off
+    expect(screen.getByTestId('note-card')).toBeInTheDocument();
+
+    fireEvent.click(card('pain / injury notes'));
+    fireEvent.click(screen.getByText(/show everything/));
+    expect(screen.getByTestId('entry-flag')).toBeInTheDocument();
+    expect(screen.getByTestId('note-card')).toBeInTheDocument();
+  });
+
+  test('a card with nothing in it cannot be clicked', () => {
+    open();
+    expect(screen.getByTitle(/Nothing to show for rpe climbing/)).toBeDisabled();
+  });
+});
