@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { C, blockColor } from "../constants";
-import { fmtDate, getSupersetLabels, getLastSets, parseLoadNum, getProgressionFill, getBestLoad, parsePrescribedRpe, parsePrescribedPct, athlete3RM, pctTargetLoad } from "../helpers";
+import { fmtDate, getSupersetLabels, getLastSets, parseLoadNum, getProgressionFill, getBestLoad, parsePrescribedRpe, parsePrescribedPct, athlete3RM, pctTargetLoad, suspectSetEntry } from "../helpers";
 import { lastSessionNotes } from "../notes";
 import { Btn } from "./common";
 
@@ -159,7 +159,22 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
     };
   }, [preview, onAutoSave, autoSave]);
 
+  // Every suspect row in the session, for the check before saving.
+  const suspectAll = () => {
+    const out = [];
+    workout.blocks.forEach((b) => (b.exercises || []).forEach((ex) => {
+      const best = getBestLoad(ex.name, athleteId, allLogs, allWorkouts, workout.id);
+      (sets[ex.id] || []).forEach((row, i) => {
+        const msg = suspectSetEntry(row, best?.best ?? null);
+        if (msg) out.push(`${ex.name} set ${i + 1}: ${msg}`);
+      });
+    }));
+    return out;
+  };
+
   const handleSave = async () => {
+    const odd = suspectAll();
+    if (odd.length && !window.confirm(`Before saving, these look off:\n\n${odd.join("\n")}\n\nSave anyway?`)) return;
     setSaving(true);
     const ok = await onSave({ athleteId, workoutId: workout.id, date: workout.date, sets, note, blockNotes, rpe });
     // A bump is one-time: consume every rule that fired in this session, even if the athlete edited the value.
@@ -180,6 +195,11 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
     // athlete enters weight without typing over the prescription.
     const presRpe = parsePrescribedRpe(ex.load);
     const pf = pctFills[ex.id];
+    // Their own best is already to hand for the PR flame; reuse it to spot a
+    // number that can't be right (10,000 lbs for a farmer carry).
+    const suspect = (sets[ex.id] || [])
+      .map((row, i) => ({ set: i + 1, msg: suspectSetEntry(row, bestInfo?.best ?? null) }))
+      .filter((x) => x.msg);
     return (
       <div key={ex.id} style={{ background: isSupersetMember ? "transparent" : C.surfaceUp, borderRadius: isSupersetMember ? 8 : 10, padding: "10px 12px", marginBottom: isSupersetMember ? 0 : 8, border: isSupersetMember ? `1px solid ${C.border}` : "none" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ color: C.white, fontWeight: 700, fontSize: 14 }}>{ex.name}</span><span style={{ color: C.muted, fontSize: 12 }}>{ex.sets}×{ex.reps}{ex.load ? ` @ ${ex.load}` : ""}</span></div>
@@ -206,6 +226,11 @@ function LogModal({ workout, athleteId, existingLog, allLogs, allWorkouts, progr
               <button onClick={() => toggleDone(ex.id, idx, ex.reps)} style={{ background: "none", border: "none", cursor: "pointer", color: row.done ? C.teal : C.muted, fontSize: 17, padding: 0, lineHeight: 1 }}>{row.done ? "✓" : "○"}</button>
             </div>
           ); })}
+          {suspect.length > 0 && (
+            <p data-testid="entry-warning" style={{ margin: "6px 0 0", flexBasis: "100%", fontSize: 11.5, color: C.gold, lineHeight: 1.4 }}>
+              ⚠ {suspect.map((x) => `S${x.set}: ${x.msg}`).join(" ")}
+            </p>
+          )}
           {openSets && <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button onClick={() => addSet(ex)} title="Add a set — use this to log extra rounds on an AMRAP" style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 7, color: C.mutedUp, fontSize: 12, fontWeight: 700, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}>+ Set</button>
             {(sets[ex.id] || []).length > 1 && <button onClick={() => removeSet(ex)} title="Remove the last set" style={{ background: "none", border: "none", color: C.muted, fontSize: 15, padding: "0 4px", cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}>−</button>}

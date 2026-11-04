@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { C, STROKES, DISTANCES } from "../constants";
 import { fmtDate } from "../helpers";
-import { applyAttentionChecks, computeAttention, ATTENTION } from "../helpers";
+import { applyAttentionChecks, computeAttention, computeEntryFlags, ATTENTION, ENTRY_LIMITS } from "../helpers";
 import { Avatar } from "./common";
 import { NoteCard } from "./NotesTab";
 
@@ -13,7 +13,7 @@ const FLAG_STYLE = {
 
 // Triage view: who to chase, who might be overreaching, who is coasting.
 // Athletes with nothing worth flagging never appear.
-function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady = false, onMarkAddressed, checks = [], checksReady = false, onCheck, onUncheck }) {
+function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady = false, onMarkAddressed, checks = [], checksReady = false, onCheck, onUncheck, onFixEntry }) {
   const [groupFilter, setGroupFilter] = useState("All");
   const [showChecked, setShowChecked] = useState(false);
   const [seasonFilter, setSeasonFilter] = useState("All");
@@ -41,6 +41,10 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
   const scopedIds = new Set(scopedWorkouts.map((w) => w.id));
   const scopedLogs = logs.filter((l) => scopedIds.has(l.workoutId));
   const asOf = to ? new Date(to + "T12:00:00") : new Date();
+  // Entries that look like typos. Judged using every session for context, but
+  // only flagged inside the current filters.
+  const entryFlags = computeEntryFlags(roster, workouts, logs, checks, { scopeWorkoutIds: new Set(scopedWorkouts.map((w) => w.id)) })
+    .filter((f) => !f.dismissed);
   const allRows = computeAttention(roster, scopedWorkouts, scopedLogs, { today: asOf });
   // Flags the coach has checked off drop out of the list until they change.
   const { open: rows, checked } = applyAttentionChecks(allRows, checks);
@@ -70,7 +74,7 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
       <div style={{ marginBottom: 16 }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: C.white }}>Needs attention</h1>
         <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 13 }}>
-          Notes that mention pain or injury, athletes who missed assigned sessions, whose RPE is climbing, or whose RPE has gone flat and low.
+          Entries that look mistyped, notes that mention pain or injury, athletes who missed assigned sessions, whose RPE is climbing, or whose RPE has gone flat and low.
           Anyone not listed is fine.
           {(from || to || seasonFilter !== "All") && (
             <span style={{ color: C.teal }}>
@@ -107,14 +111,45 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
         {tags.map((t) => pill(`🏷 ${t}`, groupFilter === t, () => setGroupFilter(t), "t-" + t))}
       </div>
 
-      {(rows.length > 0 || notes.length > 0) && (
+      {(rows.length > 0 || notes.length > 0 || entryFlags.length > 0) && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
-          {[["Pain / injury notes", noteCount("pain"), C.red], ["Sore (last 7 days)", noteCount("sore"), C.gold], ["Not logging", count("quiet"), C.red], ["RPE climbing", count("ramp"), C.gold], ["RPE flat & low", count("flat"), "#A78BFA"]].map(([label, n, color]) => (
+          {[["Entries to check", entryFlags.length, C.gold], ["Pain / injury notes", noteCount("pain"), C.red], ["Sore (last 7 days)", noteCount("sore"), C.gold], ["Not logging", count("quiet"), C.red], ["RPE climbing", count("ramp"), C.gold], ["RPE flat & low", count("flat"), "#A78BFA"]].map(([label, n, color]) => (
             <div key={label} style={{ background: C.surfaceUp, borderRadius: 12, padding: "14px 16px", border: `1px solid ${C.border}` }}>
               <p style={{ margin: 0, fontSize: 11, color: C.muted, letterSpacing: ".06em", textTransform: "uppercase" }}>{label}</p>
               <p style={{ margin: "5px 0 0", fontSize: 26, fontWeight: 800, color: n ? color : C.muted }}>{n}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {entryFlags.length > 0 && (
+        <div style={{ marginBottom: 22 }}>
+          <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 800, color: C.gold, textTransform: "uppercase", letterSpacing: ".06em" }}>Entries to check</p>
+          {entryFlags.map((f) => (
+            <div key={f.checkKind} data-testid="entry-flag" style={{ background: C.surface, border: `1px solid ${C.gold}55`, borderRadius: 12, padding: "10px 14px", marginBottom: 6, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <p style={{ margin: 0, fontSize: 13.5, color: C.white, fontWeight: 700 }}>
+                  {f.athlete.name} · {f.movement}
+                </p>
+                <p style={{ margin: "2px 0 0", fontSize: 11.5, color: C.mutedUp }}>
+                  <span style={{ color: C.gold, fontWeight: 700 }}>{f.detail}</span>
+                  <span style={{ color: C.muted }}> · {fmtDate(f.workout.date)} · {f.workout.title}</span>
+                </p>
+              </div>
+              {onFixEntry && <button onClick={() => onFixEntry(f)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7, color: C.white, fontSize: 11.5, fontWeight: 700, padding: "4px 11px", cursor: "pointer", fontFamily: "inherit" }}>Open session</button>}
+              {onCheck && (
+                <button
+                  onClick={() => onCheck(f.athlete.id, f.checkKind, String(f.value))}
+                  disabled={!checksReady}
+                  title={checksReady ? "The number is real — stop flagging it. Editing the entry later raises it again." : "Run supabase/08-attention-checks.sql in Supabase to turn this on"}
+                  style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7, color: C.mutedUp, fontSize: 11.5, fontWeight: 700, padding: "4px 11px", cursor: checksReady ? "pointer" : "not-allowed", opacity: checksReady ? 1 : 0.5, fontFamily: "inherit" }}
+                >Looks right</button>
+              )}
+            </div>
+          ))}
+          <p style={{ margin: "6px 0 0", fontSize: 11, color: C.muted }}>
+            Flagged over {ENTRY_LIMITS.maxLoad} lbs, or {ENTRY_LIMITS.jumpFactor}× what that athlete has lifted for the movement before.
+          </p>
         </div>
       )}
 
@@ -130,7 +165,7 @@ function AttentionTab({ athletes, workouts, logs, noteFlags = [], reviewsReady =
         </div>
       )}
 
-      {rows.length === 0 && notes.length === 0 && (
+      {rows.length === 0 && notes.length === 0 && entryFlags.length === 0 && (
         <div style={{ textAlign: "center", padding: "48px 0", color: C.muted }}>
           <p style={{ fontSize: 32, margin: "0 0 8px" }}>✓</p>
           <p style={{ margin: 0, color: C.teal, fontWeight: 700 }}>Nobody needs attention right now.</p>

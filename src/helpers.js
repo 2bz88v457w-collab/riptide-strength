@@ -537,6 +537,130 @@ function applyAttentionChecks(rows, checks = []) {
   };
 }
 
+// ─── SUSPECT ENTRIES ──────────────────────────────────────────────────────────
+// Someone logged 10,000 lbs for a farmer carry. A flat ceiling catches that,
+// but the commoner mistake is in range and still wrong — 300 lbs from a swimmer
+// whose best is 40 — so entries are also judged against what that athlete, or
+// failing that the rest of the squad, has actually lifted for the movement.
+const ENTRY_LIMITS = {
+  maxLoad: 400,            // nobody here is lifting this
+  jumpFactor: 2.5,         // this many times their own best for the movement
+  squadFactor: 2,          // …or, with no history of their own, the squad's best
+  minSquadBest: 10,        // ignore squad bests too small to reason from
+  maxReps: 100,
+  maxRpe: 10,
+};
+
+// The same rules, for one set row as the athlete types it. Returns a sentence
+// to show them, or null. Kept beside computeEntryFlags so the warning a swimmer
+// sees and the flag the coach sees can never disagree.
+function suspectSetEntry(row, ownBest = null, cfg = ENTRY_LIMITS) {
+  const load = parseLoadNum(row?.load);
+  const reps = parseLoadNum(row?.reps);
+  const rpe = parseLoadNum(row?.rpe);
+  if (load !== null && load > cfg.maxLoad) return `${load} lbs is over ${cfg.maxLoad} — is that right?`;
+  if (load !== null && load > 0 && ownBest !== null && load >= ownBest * cfg.jumpFactor) {
+    return `${load} lbs is a lot more than your best of ${ownBest} — check the number.`;
+  }
+  if (reps !== null && reps > cfg.maxReps) return `${reps} reps in one set — is that right?`;
+  if (rpe !== null && rpe > cfg.maxRpe) return `RPE only goes up to ${cfg.maxRpe}.`;
+  return null;
+}
+
+// One flag per exercise per session, at its worst value. `dismissed` entries
+// (the coach said the number is real) are returned too, so the caller can
+// count them; they are keyed so that a later edit re-raises the flag.
+function computeEntryFlags(athletes, workouts, logs, checks = [], { cfg = ENTRY_LIMITS, scopeWorkoutIds = null } = {}) {
+  const athById = new Map(athletes.map((a) => [a.id, a]));
+  const wktById = new Map(workouts.map((w) => [w.id, w]));
+  // exercise id → movement key, and movement key → display name
+  const moveOf = new Map();
+  const display = new Map();
+  workouts.forEach((w) => (w.blocks || []).forEach((b) => (b.exercises || []).forEach((e) => {
+    const name = (e.name || "").trim();
+    if (!name) return;
+    moveOf.set(e.id, name.toLowerCase());
+    if (!display.has(name.toLowerCase())) display.set(name.toLowerCase(), name);
+  })));
+
+  // Best load per movement per athlete, and per movement overall, from every
+  // session — so history outside the current filters still informs the check.
+  const bestByAthlete = new Map();   // `${athleteId}|${moveKey}` → best
+  const bestByMove = new Map();      // moveKey → [{athleteId, load}]
+  logs.forEach((l) => {
+    Object.entries(l.sets || {}).forEach(([exId, rows]) => {
+      const key = moveOf.get(exId);
+      if (!key) return;
+      (rows || []).forEach((r) => {
+        const n = parseLoadNum(r.load);
+        if (n === null || n <= 0) return;
+        const k = `${l.athleteId}|${key}`;
+        if (!bestByAthlete.has(k) || n > bestByAthlete.get(k)) bestByAthlete.set(k, n);
+        if (!bestByMove.has(key)) bestByMove.set(key, []);
+        bestByMove.get(key).push({ athleteId: l.athleteId, load: n, workoutId: l.workoutId });
+      });
+    });
+  });
+  const dismissedKeys = new Map(checks.filter((c) => (c.kind || "").startsWith("entry:")).map((c) => [c.kind, String(c.state)]));
+
+  const flags = [];
+  logs.forEach((log) => {
+    if (scopeWorkoutIds && !scopeWorkoutIds.has(log.workoutId)) return;
+    const athlete = athById.get(log.athleteId);
+    const workout = wktById.get(log.workoutId);
+    if (!athlete || !workout) return;
+
+    Object.entries(log.sets || {}).forEach(([exId, rows]) => {
+      const key = moveOf.get(exId);
+      if (!key) return;
+      const exercise = (workout.blocks || []).flatMap((b) => b.exercises || []).find((e) => e.id === exId);
+      let worst = null;
+      (rows || []).forEach((r, i) => {
+        const load = parseLoadNum(r.load);
+        const reps = parseLoadNum(r.reps);
+        const rpe = parseLoadNum(r.rpe);
+        let hit = null;
+        if (load !== null && load > cfg.maxLoad) {
+          hit = { kind: "load", value: load, reason: "ceiling", detail: `${load} lbs — over ${cfg.maxLoad}` };
+        } else if (load !== null && load > 0) {
+          // Impossible numbers are excluded from the comparisons: one swimmer's
+          // 10,000 lb typo must not become the yardstick that hides everyone
+          // else's. For the same reason the squad reference is a median rather
+          // than a maximum — one bad row can't move it.
+          const sane = (bestByMove.get(key) || []).filter((x) => x.load <= cfg.maxLoad);
+          const theirs = sane.filter((x) => x.athleteId === log.athleteId && x.workoutId !== log.workoutId);
+          const ownBest = theirs.length ? Math.max(...theirs.map((x) => x.load)) : null;
+          const otherBests = [...sane.filter((x) => x.athleteId !== log.athleteId)
+            .reduce((m, x) => m.set(x.athleteId, Math.max(m.get(x.athleteId) ?? 0, x.load)), new Map()).values()].sort((p, q) => p - q);
+          const squadBest = otherBests.length ? otherBests[Math.floor((otherBests.length - 1) / 2)] : null;
+          if (ownBest !== null && load >= ownBest * cfg.jumpFactor) {
+            hit = { kind: "load", value: load, reason: "jump", detail: `${load} lbs — their best before this was ${ownBest}`, ownBest };
+          } else if (ownBest === null && squadBest !== null && squadBest >= cfg.minSquadBest && load >= squadBest * cfg.squadFactor) {
+            hit = { kind: "load", value: load, reason: "squad", detail: `${load} lbs — a typical best for this movement is ${squadBest}`, squadBest };
+          }
+        }
+        if (!hit && reps !== null && reps > cfg.maxReps) hit = { kind: "reps", value: reps, reason: "reps", detail: `${reps} reps in one set` };
+        if (!hit && rpe !== null && rpe > cfg.maxRpe) hit = { kind: "rpe", value: rpe, reason: "rpe", detail: `RPE ${rpe} — the scale stops at ${cfg.maxRpe}` };
+        if (hit && (!worst || hit.value > worst.value)) worst = { ...hit, setIndex: i };
+      });
+      if (!worst) return;
+      const checkKind = `entry:${log.id}:${exId}`;
+      flags.push({
+        athlete, workout, log, exercise,
+        movement: display.get(key) || key,
+        ...worst,
+        checkKind,
+        dismissed: dismissedKeys.get(checkKind) === String(worst.value),
+      });
+    });
+  });
+
+  return flags.sort((a, b) => {
+    const rank = (f) => (f.reason === "ceiling" ? 0 : f.reason === "jump" ? 1 : f.reason === "squad" ? 2 : 3);
+    return rank(a) - rank(b) || (b.workout.date || "").localeCompare(a.workout.date || "") || b.value - a.value;
+  });
+}
+
 // ─── ATTENDANCE ───────────────────────────────────────────────────────────────
 // Attendance is derived from logs, not marked separately: an athlete counts as
 // present for a session date if they logged any workout assigned to them that
@@ -578,4 +702,4 @@ function attendanceByAthlete(sessions, athletes) {
   }).filter((r) => r.assigned > 0);
 }
 
-export { ATTENTION, MAX_EST_REPS, addDays, floorLoad, applyAttentionChecks, athlete3RM, attendanceCsv, attendanceGrid, estimate3RM, estimatedBenchmarks, parsePrescribedPct, pctTargetLoad, buildPlannedWorkouts, titleTemplateFrom, assessmentCellKeys, attendanceByAthlete, computeAttention, computeMovementProgress, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };
+export { ATTENTION, ENTRY_LIMITS, MAX_EST_REPS, addDays, computeEntryFlags, suspectSetEntry, floorLoad, applyAttentionChecks, athlete3RM, attendanceCsv, attendanceGrid, estimate3RM, estimatedBenchmarks, parsePrescribedPct, pctTargetLoad, buildPlannedWorkouts, titleTemplateFrom, assessmentCellKeys, attendanceByAthlete, computeAttention, computeMovementProgress, sessionRpe, computeMovementScore, parsePrescribedRpe, computePRs, computeSessions, emptyEx, fmtDate, getBestLoad, getLastSets, getMoveTypes, getProgressionFill, getSupersetLabels, getWorkoutMoveTypes, initBlocks, movementLevel, parseLoadNum, roundLoad, today, uid };

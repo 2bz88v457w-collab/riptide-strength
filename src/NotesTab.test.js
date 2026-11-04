@@ -92,12 +92,12 @@ describe('coach dashboard', () => {
 
   test('the Needs attention tab shows a badge as soon as the coach opens the app', () => {
     renderCoach(LOGS);
-    expect(screen.getByLabelText('1 note alert')).toBeInTheDocument();
+    expect(screen.getByLabelText('1 thing to look at')).toBeInTheDocument();
   });
 
   test('no badge when nothing is flagged', () => {
     renderCoach([LOGS[1]]);
-    expect(screen.queryByLabelText(/note alert/)).toBeNull();
+    expect(screen.queryByLabelText(/to look at/)).toBeNull();
   });
 
   test('the Notes tab opens the feed', () => {
